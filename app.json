@@ -19,7 +19,8 @@
         "monochromeImage": "./assets/logo.png"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.mannavlakha.mechanicsetumobile"
     },
     "web": {
       "output": "static",

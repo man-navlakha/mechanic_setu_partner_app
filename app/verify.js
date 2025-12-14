@@ -4,9 +4,11 @@ import { ArrowLeft } from 'lucide-react-native';
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useAuth } from '../context/AuthContext';
 import api from '../utils/api';
 
 export default function VerifyScreen() {
+    const { login } = useAuth();
     const router = useRouter();
     const params = useLocalSearchParams(); // Get data passed from Login page
 
@@ -100,12 +102,14 @@ export default function VerifyScreen() {
                 }
             });
 
-            // Success Logic
+            await login(
+                { id: ctx.id, status: ctx.status }, // User Data
+                params.cookie // Cookie passed from Login Screen
+            );
+
+            // Navigate
             if (ctx.status === 'New User') {
-                router.replace({
-                    pathname: '/form',
-                    params: { status: 'Manual', cookie: sessionCookie } // Keep passing cookie if needed for next steps!
-                });
+                router.replace('/form');
             } else {
                 router.replace('/');
             }

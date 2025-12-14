@@ -33,7 +33,7 @@ export default function LoginScreen() {
 
       console.log("Login Response:", res.data);
       console.log("Login Response Headers:", res.headers); // Debugging
-      let cookie = res.headers['set-cookie'];
+      let cookie: any = res.headers['set-cookie'];
 
       // If it's an array (common in React Native), join it into a string
       if (Array.isArray(cookie)) {
@@ -50,7 +50,7 @@ export default function LoginScreen() {
         }
       });
 
-    } catch (err) {
+    } catch (err: any) {
       console.error("Login failed:", err);
       const errorMessage = err?.res?.data?.error || 'Connection failed. Check your network.';
       setError(errorMessage);
