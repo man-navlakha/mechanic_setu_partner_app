@@ -5,6 +5,14 @@ import React, { createContext, useContext, useEffect, useRef, useState } from 'r
 import { Alert, AppState } from 'react-native';
 import api from '../utils/api';
 
+// --- SAFE IMPORT FOR NOTIFEE ---
+let notifee;
+try {
+    notifee = require('@notifee/react-native').default;
+} catch (e) {
+    console.warn("Notifee not available (Expo Go mode). Push notifications disabled.");
+}
+
 const WebSocketContext = createContext(null);
 
 export const useWebSocket = () => {
@@ -24,18 +32,17 @@ export const WebSocketProvider = ({ children }) => {
     const jobRef = useRef(null);
     const [mechanicCoords, setMechanicCoords] = useState(null);
     const intendedOnlineState = useRef(false);
-
-    // Refs for tracking
     const locationWatchId = useRef(null);
     const latestCoordsRef = useRef(null);
     const locationIntervalRef = useRef(null);
     const appState = useRef(AppState.currentState);
+    const soundRef = useRef(null);
 
     // --- 1. INITIALIZATION ---
     useEffect(() => {
         fetchInitialStatus();
+        if (notifee) requestNotificationPermission();
 
-        // App State Listener (Reconnect when app opens)
         const subscription = AppState.addEventListener('change', nextAppState => {
             if (appState.current.match(/inactive|background/) && nextAppState === 'active') {
                 if (intendedOnlineState.current) connectWebSocket();
@@ -43,15 +50,107 @@ export const WebSocketProvider = ({ children }) => {
             appState.current = nextAppState;
         });
 
+        // Listen for Notifee Actions (Only if native)
+        let unsubscribeNotifee;
+        if (notifee) {
+            unsubscribeNotifee = notifee.onForegroundEvent(({ type, detail }) => {
+                if (detail.pressAction?.id) {
+                    handleNotificationAction(detail.pressAction.id, detail.notification.data);
+                }
+            });
+        }
+
         return () => {
             subscription.remove();
+            if (unsubscribeNotifee) unsubscribeNotifee();
             disconnectWebSocket();
+            stopRing();
         };
     }, []);
 
     useEffect(() => { jobRef.current = job; }, [job]);
 
-    // --- 2. API & STATUS ---
+    const requestNotificationPermission = async () => {
+        if (notifee) await notifee.requestPermission();
+    };
+
+    // --- 2. NOTIFICATION LOGIC (Safe) ---
+    const displayIncomingJobNotification = async (newJob) => {
+        if (!notifee) return; // Skip if in Expo Go
+
+        const channelId = await notifee.createChannel({
+            id: 'job_requests',
+            name: 'Job Requests',
+            sound: 'default',
+            importance: 4, // AndroidImportance.HIGH
+            visibility: 1, // AndroidVisibility.PUBLIC
+        });
+
+        await notifee.displayNotification({
+            id: 'job_alert',
+            title: '⚠️ NEW MECHANIC REQUEST',
+            body: `${newJob.vehicle_type || 'Vehicle'} - ${newJob.problem}`,
+            data: { jobId: newJob.id },
+            android: {
+                channelId,
+                category: 'call', // AndroidCategory.CALL
+                importance: 4,
+                visibility: 1,
+                fullScreenAction: {
+                    id: 'default',
+                    launchActivity: 'default',
+                },
+                ongoing: true,
+                loopSound: true,
+                actions: [
+                    { title: '✅ ACCEPT', pressAction: { id: 'accept', launchActivity: 'default' } },
+                    { title: '❌ REJECT', pressAction: { id: 'reject' } },
+                ],
+            },
+        });
+    };
+
+    const handleNotificationAction = async (actionId, data) => {
+        if (!notifee) return;
+        const jobId = data?.jobId;
+
+        stopRing();
+        await notifee.cancelNotification('job_alert');
+
+        if (actionId === 'accept' && jobId) acceptJob(jobId);
+        else if (actionId === 'reject') rejectJob();
+    };
+
+    // --- 3. SOUND CONTROL ---
+    const startRing = async () => {
+        try {
+            if (soundRef.current) await stopRing();
+            // Ensure the sound file exists in assets/sounds/alert.mp3
+            const { sound } = await Audio.Sound.createAsync(
+                require('../assets/sounds/alert.mp3'),
+                { isLooping: true }
+            );
+            soundRef.current = sound;
+            await sound.playAsync();
+        } catch (error) {
+            console.log("[Audio] Error:", error.message);
+        }
+    };
+
+    const stopRing = async () => {
+        try {
+            if (soundRef.current) {
+                await soundRef.current.stopAsync();
+                await soundRef.current.unloadAsync();
+                soundRef.current = null;
+            }
+            if (notifee) await notifee.cancelNotification('job_alert');
+        } catch (error) {
+            console.log("[Audio] Stop Error:", error.message);
+        }
+    };
+
+    // --- 4. API & STATUS ---
     const fetchInitialStatus = async () => {
         try {
             const res = await api.get("/jobs/GetBasicNeeds/");
@@ -61,7 +160,6 @@ export const WebSocketProvider = ({ children }) => {
             setIsOnlineState(serverIsOnline);
             intendedOnlineState.current = serverIsOnline;
 
-            // Sync Active Job
             const syncRes = await api.get("/jobs/SyncActiveJob/");
             if (syncRes.data && syncRes.data.id) {
                 setJob(syncRes.data);
@@ -82,7 +180,7 @@ export const WebSocketProvider = ({ children }) => {
         }
     };
 
-    // --- 3. WEBSOCKET ---
+    // --- 5. WEBSOCKET ---
     const connectWebSocket = async () => {
         if (socketRef.current?.readyState === WebSocket.OPEN) return;
 
@@ -91,7 +189,6 @@ export const WebSocketProvider = ({ children }) => {
             const wsToken = res?.data?.ws_token;
             if (!wsToken) return;
 
-            // CHANGE THIS TO YOUR PRODUCTION URL OR LOCAL IP
             const HOST = 'mechanic-setu.onrender.com';
             const wsUrl = `wss://${HOST}/ws/job_notifications/?token=${wsToken}`;
 
@@ -109,16 +206,13 @@ export const WebSocketProvider = ({ children }) => {
                 try {
                     const data = JSON.parse(event.data);
                     handleMessage(data);
-                } catch (e) {
-                    console.error("[WS] Message Error:", e);
-                }
+                } catch (e) { console.error(e); }
             };
 
             ws.onclose = () => {
                 console.log("[WS] Disconnected");
                 setSocket(null);
                 stopLocationTracking();
-                // Simple reconnect logic
                 if (intendedOnlineState.current) setTimeout(connectWebSocket, 3000);
             };
 
@@ -137,19 +231,22 @@ export const WebSocketProvider = ({ children }) => {
     const handleMessage = async (data) => {
         switch (data.type) {
             case "new_job":
-                if (data.service_request) {
-                    console.log("[WS] New Job:", data.service_request.id);
-                    setJob(data.service_request);
-                    playAlertSound();
-                } else {
-                    console.warn("[WS] Received new_job but no service_request data");
+                console.log("[WS] New Job:", data.service_request.id);
+                setJob(data.service_request);
+
+                startRing(); // Play Sound
+
+                // Only show native notification if in background AND notifee exists
+                if (AppState.currentState !== 'active' && notifee) {
+                    await displayIncomingJobNotification(data.service_request);
                 }
                 break;
 
             case "job_status_update":
                 if (jobRef.current?.id == data.job_id) {
-                    if (data.status === "COMPLETED" || data.status === "CANCELLED" || data.status === "EXPIRED") {
+                    if (["COMPLETED", "CANCELLED", "EXPIRED"].includes(data.status)) {
                         setJob(null);
+                        stopRing();
                         updateStatus("ONLINE");
                         router.replace('/dashboard');
                     } else {
@@ -160,14 +257,47 @@ export const WebSocketProvider = ({ children }) => {
         }
     };
 
-    // --- 4. LOCATION ---
+    // --- 6. ACTIONS ---
+    const acceptJob = async (jobId) => {
+        stopRing(); // Stop sound immediately
+
+        try {
+            console.log(`[JOB] Accepting Job ID: ${jobId}`);
+            const res = await api.post(`/jobs/AcceptServiceRequest/${jobId}/`);
+
+            let acceptedJob = res.data.job;
+            if (!acceptedJob) {
+                if (jobRef.current && String(jobRef.current.id) === String(jobId)) {
+                    acceptedJob = { ...jobRef.current, status: 'WORKING' };
+                } else {
+                    acceptedJob = { id: jobId, status: 'WORKING' };
+                }
+            }
+
+            setJob(acceptedJob);
+            await updateStatus("WORKING");
+
+            if (acceptedJob?.id) {
+                router.push(`/job/${acceptedJob.id}`);
+            }
+
+        } catch (err) {
+            console.error("[JOB] Accept failed:", err);
+            Alert.alert("Error", "Could not accept job.");
+        }
+    };
+
+    const rejectJob = () => {
+        stopRing();
+        setJob(null);
+    };
+
+    // Location logic (same as before)
     const startLocationTracking = async () => {
         if (locationWatchId.current) return;
-
         let { status } = await Location.requestForegroundPermissionsAsync();
         if (status !== 'granted') return;
 
-        // 1. Live Watch (Updates UI)
         locationWatchId.current = await Location.watchPositionAsync(
             { accuracy: Location.Accuracy.High, distanceInterval: 10 },
             (loc) => {
@@ -177,7 +307,6 @@ export const WebSocketProvider = ({ children }) => {
             }
         );
 
-        // 2. Publish to Server (Every 4s)
         locationIntervalRef.current = setInterval(() => {
             if (latestCoordsRef.current && socketRef.current?.readyState === WebSocket.OPEN) {
                 socketRef.current.send(JSON.stringify({
@@ -196,7 +325,6 @@ export const WebSocketProvider = ({ children }) => {
         locationIntervalRef.current = null;
     };
 
-    // --- 5. ACTIONS ---
     const setIsOnline = async (val) => {
         setIsOnlineState(val);
         intendedOnlineState.current = val;
@@ -206,70 +334,37 @@ export const WebSocketProvider = ({ children }) => {
         } else {
             await updateStatus("OFFLINE");
             disconnectWebSocket();
+            stopRing();
         }
     };
 
-    const acceptJob = async (jobId) => {
-        await stopAlertSound(); // Stop sound
+    const completeJob = async (jobId, price) => {
         try {
-            const res = await api.post(`/jobs/AcceptServiceRequest/${jobId}/`);
-            const acceptedJob = res.data.job;
-            setJob(acceptedJob);
-            await updateStatus("WORKING");
-            router.push(`/job/${acceptedJob.id}`);
-        } catch (err) {
-            Alert.alert("Error", "Could not accept job.");
-            console.error(err);
+            await api.post(`/jobs/CompleteServiceRequest/${jobId}/`, { price });
+            Alert.alert("Success", "Job Completed!");
             setJob(null);
+            updateStatus("ONLINE");
+            router.replace('/dashboard');
+        } catch (e) {
+            Alert.alert("Error", "Failed to complete job.");
         }
     };
 
-    const rejectJob = async () => {
-        await stopAlertSound(); // Stop sound
-        setJob(null);
-        // Optionally inform server
-    };
-
-    // --- SOUND MANAGEMENT ---
-    const soundObjectRef = useRef(null);
-
-    const playAlertSound = async () => {
+    const cancelJob = async (jobId, reason) => {
         try {
-            // Stop any existing sound first
-            await stopAlertSound();
-
-            const { sound } = await Audio.Sound.createAsync(
-                require('../assets/sounds/alert.mp3')
-            );
-            soundObjectRef.current = sound;
-            await sound.playAsync();
-
-            // Auto-unload when finished
-            sound.setOnPlaybackStatusUpdate(async (status) => {
-                if (status.didJustFinish) {
-                    await stopAlertSound();
-                }
-            });
-        } catch (error) {
-            console.log("[Sound] Error playing sound:", error);
-        }
-    };
-
-    const stopAlertSound = async () => {
-        try {
-            if (soundObjectRef.current) {
-                await soundObjectRef.current.stopAsync();
-                await soundObjectRef.current.unloadAsync();
-                soundObjectRef.current = null;
-            }
-        } catch (error) {
-            console.log("[Sound] Error stopping sound:", error);
+            await api.post(`/jobs/CancelServiceRequest/${jobId}/`, { cancellation_reason: reason });
+            Alert.alert("Cancelled", "Job has been cancelled.");
+            setJob(null);
+            updateStatus("ONLINE");
+            router.replace('/dashboard');
+        } catch (e) {
+            Alert.alert("Error", "Failed to cancel job.");
         }
     };
 
     return (
         <WebSocketContext.Provider value={{
-            isOnline, setIsOnline, job, mechanicCoords, acceptJob, rejectJob
+            isOnline, setIsOnline, job, mechanicCoords, acceptJob, rejectJob, completeJob, cancelJob
         }}>
             {children}
         </WebSocketContext.Provider>

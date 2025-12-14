@@ -17,21 +17,21 @@ export function AuthProvider({ children }) {
         checkLoginStatus();
     }, []);
 
-    // 1. Check Login & Fetch Profile on App Start
     const checkLoginStatus = async () => {
         try {
+            // 1. Retrieve the saved cookie
             const cookie = await SecureStore.getItemAsync('session_cookie');
 
             if (cookie) {
-                // A. Check if Session is Valid
+                // 2. Validate with backend (Ask: "Is this cookie still valid?")
                 const userRes = await api.get('core/me/');
-                if (userRes.data.username || userRes.data.id) {
-                    setUser(userRes.data);
 
-                    // B. Fetch Profile (only if we have a user)
+                if (userRes.data.username || userRes.data.id) {
+                    // 3. Restore User State
+                    setUser(userRes.data);
                     await fetchProfile();
                 } else {
-                    await logout();
+                    await logout(); // Cookie invalid/expired
                 }
             }
         } catch (e) {
@@ -41,7 +41,6 @@ export function AuthProvider({ children }) {
             setLoading(false);
         }
     };
-
     // 2. Helper to fetch profile data
     const fetchProfile = async () => {
         try {
@@ -66,6 +65,7 @@ export function AuthProvider({ children }) {
             }
         }
     };
+
 
     // 3. Login Action
     const login = async (userData, cookieString) => {

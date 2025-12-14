@@ -1,7 +1,7 @@
 import axios from 'axios';
 import * as SecureStore from 'expo-secure-store';
 
-// REPLACE with your actual computer's IP address if testing locally
+// Update with your production URL or local IP
 const BASE_URL = 'https://mechanic-setu.onrender.com/api/';
 
 const api = axios.create({
@@ -9,71 +9,53 @@ const api = axios.create({
     headers: {
         'Content-Type': 'application/json',
     },
-    withCredentials: true, // Important for cookies
+    withCredentials: true, // Crucial for cookies
 });
 
-// 1. REQUEST INTERCEPTOR: Automatically attach the cookie
+// --- 1. REQUEST INTERCEPTOR ---
+// Automatically attaches the Cookie & CSRF Token to every API call
 api.interceptors.request.use(
     async (config) => {
-        // Read cookie from secure storage
-        const token = await SecureStore.getItemAsync('session_cookie');
-        if (token) {
-            config.headers.Cookie = token;
+        try {
+            // Read the saved cookie from phone storage
+            const cookieString = await SecureStore.getItemAsync('session_cookie');
+
+            if (cookieString) {
+                config.headers.Cookie = cookieString;
+
+                // Extract CSRF Token if present in the cookie string
+                const csrfMatch = cookieString.match(/csrftoken=([^;]+)/);
+                if (csrfMatch && csrfMatch[1]) {
+                    config.headers['X-CSRFToken'] = csrfMatch[1];
+                }
+            }
+        } catch (error) {
+            console.log("Error loading cookie:", error);
         }
         return config;
     },
     (error) => Promise.reject(error)
 );
 
-// 2. RESPONSE INTERCEPTOR: Handle Expired Session (401)
+// --- 2. RESPONSE INTERCEPTOR ---
+// Handles expired sessions (401 Unauthorized)
 api.interceptors.response.use(
     (response) => response,
     async (error) => {
         const originalRequest = error.config;
 
-        // If we get a 401 (Unauthorized) and we haven't tried refreshing yet
+        // If we get a 401 error (Unauthorized) and haven't retried yet
         if (error.response?.status === 401 && !originalRequest._retry) {
             originalRequest._retry = true;
-
             try {
-                console.log("Session expired. Attempting refresh...");
-
-                // Call the backend to refresh the session
-                // We use plain 'axios' to avoid triggering this interceptor again
-                const cookie = await SecureStore.getItemAsync('session_cookie');
-
-                // Assuming the endpoint is /users/refresh/ based on previous comments
-                // If this path is wrong, please check your backend API documentation
-                const res = await axios.post(`${BASE_URL}users/refresh/`, {}, {
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Cookie': cookie
-                    },
-                    withCredentials: true
-                });
-
-                console.log("Refresh successful:", res.status);
-
-                // If the backend sends a NEW cookie, save it
-                const newCookie = res.headers['set-cookie'];
-                if (newCookie) {
-                    // Handle array or string
-                    const cookieValue = Array.isArray(newCookie) ? newCookie.join('; ') : newCookie;
-                    await SecureStore.setItemAsync('session_cookie', cookieValue);
-
-                    // Update the header for the retry
-                    originalRequest.headers['Cookie'] = cookieValue;
-                    api.defaults.headers.common['Cookie'] = cookieValue;
-                }
-
-                // Retry the original failed request
-                return api(originalRequest);
-
-            } catch (refreshError) {
-                console.error("Refresh failed:", refreshError.response?.status, refreshError.response?.data);
-                // If refresh fails, delete cookie so AuthContext kicks user to Login
+                console.log("Session expired or invalid. Logging out...");
+                // Clear the invalid cookie so the user is sent to Login screen
                 await SecureStore.deleteItemAsync('session_cookie');
-                return Promise.reject(refreshError);
+
+                // Optional: Trigger a global logout event here if needed
+                // But usually, AuthContext will detect the failure on next check/reload
+            } catch (err) {
+                console.error("Logout cleanup failed", err);
             }
         }
         return Promise.reject(error);

@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "Setu Partner",
-    "slug": "mechanic-setu-mobile",
+    "slug": "setu-partner",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/logo.png",
@@ -20,7 +20,12 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.mannavlakha.mechanicsetumobile"
+      "package": "com.mannavlakha.mechanicsetumobile",
+      "permissions": [
+        "USE_FULL_SCREEN_INTENT",
+        "FOREGROUND_SERVICE",
+        "VIBRATE"
+      ]
     },
     "web": {
       "output": "static",
@@ -40,11 +45,28 @@
           }
         }
       ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "extraMavenRepos": [
+              "../../node_modules/@notifee/react-native/android/libs"
+            ]
+          }
+        }
+      ],
       "expo-secure-store"
     ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "a64d6f7c-67df-462c-bd7b-4ef540f445f2"
+      }
+    },
+    "owner": "mannavlakha"
   }
 }

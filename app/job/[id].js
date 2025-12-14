@@ -4,28 +4,28 @@ import {
     ArrowLeft,
     Car,
     CheckCircle,
-    Clock,
+    IndianRupee,
     MapPin,
     Navigation,
     Phone,
     XCircle
 } from 'lucide-react-native';
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Image, Linking, Modal, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, KeyboardAvoidingView, Linking, Modal, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useWebSocket } from '../../context/WebSocketContext';
 
-// --- HELPER: Calculate Distance (Haversine Formula) ---
+// --- HELPER: Calculate Distance ---
 const getDistanceInKm = (lat1, lon1, lat2, lon2) => {
-    const R = 6371; // Radius of earth in km
+    const R = 6371;
     const dLat = (lat2 - lat1) * Math.PI / 180;
     const dLon = (lon2 - lon1) * Math.PI / 180;
     const a =
         Math.sin(dLat / 2) * Math.sin(dLat / 2) +
         Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return R * c; // Distance in km
+    return R * c;
 };
 
 export default function JobDetailsPage() {
@@ -33,24 +33,24 @@ export default function JobDetailsPage() {
     const router = useRouter();
     const mapRef = useRef(null);
 
-    // Context
     const { job, completeJob, cancelJob, mechanicCoords } = useWebSocket();
 
-    // State
     const [distance, setDistance] = useState(null);
     const [loading, setLoading] = useState(false);
+
+    // Modals
     const [cancelModalVisible, setCancelModalVisible] = useState(false);
     const [cancelReason, setCancelReason] = useState('');
 
-    // 1. Initial Map Zoom (Fit Mechanic & Job)
+    const [completeModalVisible, setCompleteModalVisible] = useState(false);
+    const [priceInput, setPriceInput] = useState('');
+
+    // 1. Initial Map Zoom
     useEffect(() => {
         if (mechanicCoords && job && mapRef.current) {
-            const jobLat = parseFloat(job.latitude);
-            const jobLng = parseFloat(job.longitude);
-
             mapRef.current.fitToCoordinates([
                 { latitude: mechanicCoords.latitude, longitude: mechanicCoords.longitude },
-                { latitude: jobLat, longitude: jobLng },
+                { latitude: parseFloat(job.latitude), longitude: parseFloat(job.longitude) },
             ], {
                 edgePadding: { top: 100, right: 50, bottom: 50, left: 50 },
                 animated: true,
@@ -58,7 +58,7 @@ export default function JobDetailsPage() {
         }
     }, [mechanicCoords, job]);
 
-    // 2. Calculate Distance Live
+    // 2. Calculate Distance
     useEffect(() => {
         if (mechanicCoords && job) {
             const dist = getDistanceInKm(
@@ -71,7 +71,7 @@ export default function JobDetailsPage() {
         }
     }, [mechanicCoords, job]);
 
-    // 3. Actions
+    // Actions
     const handleNavigate = () => {
         const lat = job?.latitude;
         const lng = job?.longitude;
@@ -84,46 +84,37 @@ export default function JobDetailsPage() {
     };
 
     const handleCall = () => {
-        if (job?.mobile_number) {
-            Linking.openURL(`tel:${job.mobile_number}`);
-        } else {
-            Alert.alert("No Number", "Customer phone number not available.");
-        }
+        if (job?.mobile_number) Linking.openURL(`tel:${job.mobile_number}`);
+        else Alert.alert("No Number", "Customer phone not available.");
     };
 
-    const handleComplete = async () => {
-        // Distance Check (Must be within 500m / 0.5km)
-        // NOTE: For testing, you might want to comment this check out
+    const onCompleteBtnPress = () => {
+        // --- DISTANCE CHECK (Optional: Comment out for testing) ---
+        /*
         if (distance > 0.5) {
-            Alert.alert("Too Far", "You must be at the customer's location (within 500m) to complete the job.");
+          Alert.alert("Too Far", "You must be within 500m of the customer to complete the job.");
+          return;
+        }
+        */
+        setCompleteModalVisible(true);
+    };
+
+    const submitCompletion = async () => {
+        if (!priceInput || isNaN(priceInput) || parseFloat(priceInput) < 0) {
+            Alert.alert("Invalid Price", "Please enter a valid amount.");
             return;
         }
 
-        Alert.prompt(
-            "Complete Job",
-            "Enter total amount collected (₹):",
-            [
-                { text: "Cancel", style: "cancel" },
-                {
-                    text: "Complete",
-                    onPress: async (price) => {
-                        if (!price || isNaN(price)) return Alert.alert("Invalid Price");
-                        setLoading(true);
-                        try {
-                            await completeJob(job.id, parseFloat(price));
-                            Alert.alert("Success", "Job completed successfully!");
-                            router.replace('/dashboard');
-                        } catch (err) {
-                            Alert.alert("Error", "Failed to complete job.");
-                        } finally {
-                            setLoading(false);
-                        }
-                    }
-                }
-            ],
-            "plain-text",
-            ""
-        );
+        setLoading(true);
+        try {
+            await completeJob(job.id, parseFloat(priceInput));
+            setCompleteModalVisible(false);
+            // Context handles redirect
+        } catch (err) {
+            Alert.alert("Error", "Failed to complete job.");
+        } finally {
+            setLoading(false);
+        }
     };
 
     const handleCancel = async () => {
@@ -135,7 +126,6 @@ export default function JobDetailsPage() {
         try {
             await cancelJob(job.id, cancelReason);
             setCancelModalVisible(false);
-            // Context will handle redirection to home
         } catch (err) {
             Alert.alert("Error", "Failed to cancel job.");
         } finally {
@@ -143,7 +133,6 @@ export default function JobDetailsPage() {
         }
     };
 
-    // --- Render Loading / No Job ---
     if (!job || String(job.id) !== String(id)) {
         return (
             <View className="flex-1 justify-center items-center bg-white">
@@ -153,14 +142,14 @@ export default function JobDetailsPage() {
         );
     }
 
-    const isNear = distance !== null && distance <= 0.5; // 500 meters threshold
+    const isNear = distance !== null && distance <= 0.5;
 
     return (
         <View className="flex-1 bg-slate-50">
 
-            {/* 1. HEADER (Floating) */}
-            <SafeAreaView className="absolute top-0 w-full z-10">
-                <View className="mx-4 flex-row justify-between items-center">
+            {/* 1. HEADER */}
+            <SafeAreaView className="absolute top-0 w-full z-10 pointer-events-box-none">
+                <View className="mx-4 flex-row justify-between items-center pointer-events-auto">
                     <TouchableOpacity onPress={() => router.back()} className="bg-white p-3 rounded-full shadow-sm">
                         <ArrowLeft size={24} color="black" />
                     </TouchableOpacity>
@@ -173,13 +162,13 @@ export default function JobDetailsPage() {
                 </View>
             </SafeAreaView>
 
-            {/* 2. MAP VIEW */}
+            {/* 2. MAP */}
             <View className="h-1/2 w-full relative">
                 <MapView
                     ref={mapRef}
                     provider={PROVIDER_GOOGLE}
                     style={{ flex: 1 }}
-                    showsUserLocation={true} // Show mechanic blue dot
+                    showsUserLocation={true}
                     initialRegion={{
                         latitude: parseFloat(job.latitude),
                         longitude: parseFloat(job.longitude),
@@ -187,7 +176,6 @@ export default function JobDetailsPage() {
                         longitudeDelta: 0.05,
                     }}
                 >
-                    {/* Customer Marker */}
                     <Marker
                         coordinate={{ latitude: parseFloat(job.latitude), longitude: parseFloat(job.longitude) }}
                         title="Customer"
@@ -198,7 +186,6 @@ export default function JobDetailsPage() {
                         </View>
                     </Marker>
 
-                    {/* Optional: Line between mechanic and customer */}
                     {mechanicCoords && (
                         <Polyline
                             coordinates={[
@@ -212,7 +199,6 @@ export default function JobDetailsPage() {
                     )}
                 </MapView>
 
-                {/* Navigation Button (Floating on Map) */}
                 <TouchableOpacity
                     onPress={handleNavigate}
                     className="absolute bottom-6 right-6 bg-blue-600 flex-row items-center px-5 py-3 rounded-full shadow-xl"
@@ -222,10 +208,9 @@ export default function JobDetailsPage() {
                 </TouchableOpacity>
             </View>
 
-            {/* 3. DETAILS SHEET */}
+            {/* 3. INFO SHEET */}
             <ScrollView className="flex-1 -mt-6 bg-white rounded-t-3xl px-6 pt-8 pb-10 shadow-inner">
 
-                {/* Customer Header */}
                 <View className="flex-row items-center justify-between mb-6">
                     <View className="flex-row items-center">
                         <Image
@@ -242,13 +227,12 @@ export default function JobDetailsPage() {
                     </TouchableOpacity>
                 </View>
 
-                {/* Job Info Grid */}
                 <View className="bg-slate-50 p-4 rounded-2xl border border-slate-100 space-y-4 mb-6">
                     <View className="flex-row items-start">
                         <Car size={20} color="#64748b" className="mt-0.5 mr-3" />
                         <View className="flex-1">
                             <Text className="text-xs text-slate-500 uppercase font-bold">Vehicle</Text>
-                            <Text className="text-base font-semibold text-slate-800">{job.vehical_type || "Vehicle info not provided"}</Text>
+                            <Text className="text-base font-semibold text-slate-800">{job.vehical_type || "Unknown"}</Text>
                         </View>
                     </View>
 
@@ -259,9 +243,6 @@ export default function JobDetailsPage() {
                         <View className="flex-1">
                             <Text className="text-xs text-slate-500 uppercase font-bold">Problem</Text>
                             <Text className="text-base font-semibold text-slate-800">{job.problem}</Text>
-                            {job.additional_details && (
-                                <Text className="text-sm text-slate-600 mt-1 italic">"{job.additional_details}"</Text>
-                            )}
                         </View>
                     </View>
 
@@ -278,34 +259,79 @@ export default function JobDetailsPage() {
                     </View>
                 </View>
 
-                {/* 4. ACTION BUTTONS */}
-                <View className="mb-8">
-                    {isNear ? (
-                        <TouchableOpacity
-                            onPress={handleComplete}
-                            className={`w-full py-4 rounded-xl flex-row justify-center items-center bg-green-600 shadow-md ${loading ? 'opacity-70' : ''}`}
-                            disabled={loading}
-                        >
-                            {loading ? (
-                                <ActivityIndicator color="white" />
-                            ) : (
-                                <>
-                                    <CheckCircle size={20} color="white" className="mr-2" />
-                                    <Text className="text-white font-bold text-lg">Complete Job</Text>
-                                </>
-                            )}
-                        </TouchableOpacity>
+                {/* 4. MAIN ACTION */}
+                <TouchableOpacity
+                    onPress={onCompleteBtnPress}
+                    className={`w-full py-4 rounded-xl flex-row justify-center items-center shadow-md ${isNear ? 'bg-green-600' : 'bg-green-600 opacity-90'}`}
+                    disabled={loading}
+                >
+                    {loading ? (
+                        <ActivityIndicator color="white" />
                     ) : (
-                        <View className="bg-amber-50 border border-amber-200 p-4 rounded-xl flex-row items-center justify-center">
-                            <Clock size={20} color="#d97706" className="mr-2" />
-                            <Text className="text-amber-800 font-medium text-center">
-                                Get closer (within 500m) to complete
-                            </Text>
-                        </View>
+                        <>
+                            <CheckCircle size={20} color="white" className="mr-2" />
+                            <Text className="text-white font-bold text-lg">Complete Job</Text>
+                        </>
                     )}
-                </View>
+                </TouchableOpacity>
+
+                {!isNear && (
+                    <Text className="text-center text-xs text-amber-600 mt-2 font-medium">
+                        Note: You are currently far from the location.
+                    </Text>
+                )}
 
             </ScrollView>
+
+            {/* --- COMPLETE JOB MODAL (Fix for Android) --- */}
+            <Modal
+                animationType="fade"
+                transparent={true}
+                visible={completeModalVisible}
+                onRequestClose={() => setCompleteModalVisible(false)}
+            >
+                <KeyboardAvoidingView
+                    behavior={Platform.OS === "ios" ? "padding" : "height"}
+                    className="flex-1 justify-center items-center bg-black/60 px-4"
+                >
+                    <View className="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl">
+                        <View className="items-center mb-6">
+                            <View className="bg-green-100 p-4 rounded-full mb-3">
+                                <CheckCircle size={32} color="#16a34a" />
+                            </View>
+                            <Text className="text-2xl font-bold text-slate-800">Job Done!</Text>
+                            <Text className="text-slate-500 text-center">Please enter the final amount collected from the customer.</Text>
+                        </View>
+
+                        <View className="flex-row items-center border border-slate-300 rounded-xl px-4 py-3 mb-6 bg-slate-50 focus:border-green-500">
+                            <IndianRupee size={20} color="#64748b" />
+                            <TextInput
+                                value={priceInput}
+                                onChangeText={setPriceInput}
+                                keyboardType="numeric"
+                                placeholder="Enter Amount"
+                                className="flex-1 ml-2 text-xl font-bold text-slate-800 h-8"
+                                autoFocus={true}
+                            />
+                        </View>
+
+                        <View className="flex-row gap-3">
+                            <TouchableOpacity
+                                onPress={() => setCompleteModalVisible(false)}
+                                className="flex-1 py-3 rounded-xl bg-slate-100 items-center"
+                            >
+                                <Text className="font-bold text-slate-600">Cancel</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                onPress={submitCompletion}
+                                className="flex-1 py-3 rounded-xl bg-green-600 items-center"
+                            >
+                                <Text className="font-bold text-white">Complete</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </KeyboardAvoidingView>
+            </Modal>
 
             {/* --- CANCEL MODAL --- */}
             <Modal
@@ -323,7 +349,7 @@ export default function JobDetailsPage() {
                             </TouchableOpacity>
                         </View>
 
-                        <Text className="text-slate-500 mb-4">Please specify a reason for cancellation:</Text>
+                        <Text className="text-slate-500 mb-4">Reason for cancellation:</Text>
 
                         <View className="space-y-2 mb-4">
                             {["Customer requested cancel", "Unable to contact customer", "Vehicle issue too complex", "I had an emergency"].map((r) => (

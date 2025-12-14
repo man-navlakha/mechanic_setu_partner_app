@@ -38,19 +38,18 @@ const SwipeButton = ({ onToggle }) => {
         }
     };
 
-    // Modern Gesture API
+    // Modern Gesture API (Fixes your error)
     const panGesture = Gesture.Pan()
         .onUpdate((e) => {
             if (isSuccess) return;
             let newValue = e.translationX;
-            // Limit bounds
             if (newValue >= 0 && newValue <= H_SWIPE_RANGE) {
                 X.value = newValue;
             }
         })
         .onEnd(() => {
             if (isSuccess) return;
-            if (X.value > H_SWIPE_RANGE * 0.7) { // Threshold 70%
+            if (X.value > H_SWIPE_RANGE * 0.7) {
                 X.value = withSpring(H_SWIPE_RANGE, { damping: 20 }, (finished) => {
                     if (finished) runOnJS(handleComplete)(true);
                 });
@@ -59,31 +58,24 @@ const SwipeButton = ({ onToggle }) => {
             }
         });
 
-    const animatedKnobStyle = useAnimatedStyle(() => {
-        return { transform: [{ translateX: X.value }] };
-    });
+    const animatedKnobStyle = useAnimatedStyle(() => ({
+        transform: [{ translateX: X.value }]
+    }));
 
-    const animatedOverlayStyle = useAnimatedStyle(() => {
-        return { width: X.value + SWIPEABLE_DIMENSIONS + BUTTON_PADDING };
-    });
+    const animatedOverlayStyle = useAnimatedStyle(() => ({
+        width: X.value + SWIPEABLE_DIMENSIONS + BUTTON_PADDING
+    }));
 
-    const animatedTextStyle = useAnimatedStyle(() => {
-        return {
-            opacity: interpolate(X.value, [0, H_SWIPE_RANGE / 2], [1, 0], Extrapolate.CLAMP),
-        };
-    });
+    const animatedTextStyle = useAnimatedStyle(() => ({
+        opacity: interpolate(X.value, [0, H_SWIPE_RANGE / 2], [1, 0], Extrapolate.CLAMP),
+    }));
 
     return (
         <View style={styles.swipeContainer}>
-            {/* Background Fill */}
             <Animated.View style={[styles.colorOverlay, animatedOverlayStyle]} />
-
-            {/* Text Label */}
             <Animated.Text style={[styles.swipeText, animatedTextStyle]}>
                 {isSuccess ? "Accepted!" : "Swipe to Accept"}
             </Animated.Text>
-
-            {/* Swipe Knob */}
             <GestureDetector gesture={panGesture}>
                 <Animated.View style={[styles.swipeable, animatedKnobStyle]}>
                     {isSuccess ? <Check size={24} color="green" /> : <ChevronsRight size={24} color="#2563eb" />}
@@ -102,9 +94,7 @@ const CountdownTimer = ({ seconds, onExpire }) => {
             onExpire && onExpire();
             return;
         }
-        const timer = setInterval(() => {
-            setTimeLeft((prev) => prev - 1);
-        }, 1000);
+        const timer = setInterval(() => setTimeLeft((prev) => prev - 1), 1000);
         return () => clearInterval(timer);
     }, [timeLeft]);
 
@@ -121,21 +111,15 @@ export default function JobNotificationPopup({ job, onAccept, onReject }) {
 
     return (
         <View style={styles.overlay}>
-            {/* Reject Button */}
             <TouchableOpacity onPress={onReject} style={styles.rejectBtn}>
                 <X size={20} color="white" />
                 <Text style={styles.rejectText}>Reject</Text>
             </TouchableOpacity>
 
-            {/* Main Card */}
             <View style={styles.card}>
-
-                {/* Header */}
                 <View style={styles.header}>
                     <View style={styles.headerContent}>
-                        <View style={styles.iconBox}>
-                            <Wrench size={24} color="white" />
-                        </View>
+                        <View style={styles.iconBox}><Wrench size={24} color="white" /></View>
                         <View>
                             <Text style={styles.headerTitle}>New Service Request</Text>
                             <View style={styles.headerSubtitleRow}>
@@ -144,230 +128,68 @@ export default function JobNotificationPopup({ job, onAccept, onReject }) {
                             </View>
                         </View>
                     </View>
-                    {/* Pulsing Dot */}
                     <View style={styles.pulsingDot} />
                 </View>
 
-                {/* Content Body */}
                 <View style={styles.body}>
-
-                    {/* Row 1: Vehicle */}
                     <View style={[styles.infoRow, { backgroundColor: '#eff6ff', borderColor: '#dbeafe' }]}>
-                        <View style={[styles.infoIconBox, { backgroundColor: '#dbeafe' }]}>
-                            {getVehicleIcon(job.vehical_type)}
-                        </View>
+                        <View style={[styles.infoIconBox, { backgroundColor: '#dbeafe' }]}>{getVehicleIcon(job.vehical_type)}</View>
                         <View>
                             <Text style={styles.infoLabel}>Vehicle Type</Text>
                             <Text style={styles.infoValue}>{job.vehical_type || 'Unknown'}</Text>
                         </View>
                     </View>
 
-                    {/* Row 2: Problem */}
                     <View style={[styles.infoRow, { backgroundColor: '#fffbeb', borderColor: '#fef3c7' }]}>
-                        <View style={[styles.infoIconBox, { backgroundColor: '#fef3c7' }]}>
-                            <Wrench size={20} color="#d97706" />
-                        </View>
+                        <View style={[styles.infoIconBox, { backgroundColor: '#fef3c7' }]}><Wrench size={20} color="#d97706" /></View>
                         <View style={{ flex: 1 }}>
                             <Text style={styles.infoLabel}>Problem</Text>
-                            <Text style={styles.infoValue} numberOfLines={2}>
-                                {job.problem || job.description || 'No description'}
-                            </Text>
+                            <Text style={styles.infoValue} numberOfLines={2}>{job.problem || 'No description'}</Text>
                         </View>
                     </View>
 
-                    {/* Row 3: Location */}
                     <View style={[styles.infoRow, { backgroundColor: '#f0fdf4', borderColor: '#dcfce7' }]}>
-                        <View style={[styles.infoIconBox, { backgroundColor: '#dcfce7' }]}>
-                            <MapPin size={20} color="#16a34a" />
-                        </View>
+                        <View style={[styles.infoIconBox, { backgroundColor: '#dcfce7' }]}><MapPin size={20} color="#16a34a" /></View>
                         <View style={{ flex: 1 }}>
                             <Text style={styles.infoLabel}>Location</Text>
-                            <Text style={styles.infoValue} numberOfLines={1}>
-                                {job.location || job.address || 'Location shared'}
-                            </Text>
+                            <Text style={styles.infoValue} numberOfLines={1}>{job.location || 'Location shared'}</Text>
                         </View>
                     </View>
-
                 </View>
 
-                {/* Footer Actions */}
                 <View style={styles.footer}>
                     <SwipeButton onToggle={onAccept} />
                     <View style={styles.timerContainer}>
                         <CountdownTimer seconds={30} onExpire={onReject} />
                     </View>
                 </View>
-
             </View>
         </View>
     );
 }
 
-// --- Styles ---
 const styles = StyleSheet.create({
-    overlay: {
-        ...StyleSheet.absoluteFillObject,
-        backgroundColor: 'rgba(0,0,0,0.6)',
-        zIndex: 2000,
-        justifyContent: 'flex-end',
-        alignItems: 'center',
-        paddingBottom: 40,
-    },
-    rejectBtn: {
-        position: 'absolute',
-        top: 60,
-        right: 20,
-        backgroundColor: '#4b5563',
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingVertical: 10,
-        paddingHorizontal: 20,
-        borderRadius: 30,
-        zIndex: 2001,
-        shadowColor: '#000',
-        shadowOpacity: 0.3,
-        shadowRadius: 5,
-        shadowOffset: { width: 0, height: 2 },
-    },
-    rejectText: {
-        color: 'white',
-        fontWeight: 'bold',
-        marginLeft: 8,
-    },
-    card: {
-        width: width - 32,
-        backgroundColor: 'white',
-        borderRadius: 24,
-        overflow: 'hidden',
-        shadowColor: '#000',
-        shadowOpacity: 0.25,
-        shadowRadius: 10,
-        shadowOffset: { width: 0, height: 5 },
-        elevation: 10,
-    },
-    header: {
-        backgroundColor: '#2563eb', // Blue-600
-        padding: 20,
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-    },
-    headerContent: {
-        flexDirection: 'row',
-        alignItems: 'center',
-    },
-    iconBox: {
-        backgroundColor: 'rgba(255,255,255,0.2)',
-        padding: 8,
-        borderRadius: 12,
-        marginRight: 12,
-    },
-    headerTitle: {
-        color: 'white',
-        fontSize: 18,
-        fontWeight: 'bold',
-    },
-    headerSubtitleRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginTop: 2,
-    },
-    headerSubtitle: {
-        color: '#bfdbfe',
-        fontSize: 12,
-    },
-    pulsingDot: {
-        width: 12,
-        height: 12,
-        borderRadius: 6,
-        backgroundColor: '#4ade80', // Green-400
-        borderWidth: 2,
-        borderColor: '#2563eb',
-    },
-    body: {
-        padding: 20,
-        gap: 12,
-    },
-    infoRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        padding: 12,
-        borderRadius: 12,
-        borderWidth: 1,
-    },
-    infoIconBox: {
-        padding: 8,
-        borderRadius: 8,
-        marginRight: 12,
-    },
-    infoLabel: {
-        fontSize: 12,
-        color: '#64748b',
-        fontWeight: '600',
-    },
-    infoValue: {
-        fontSize: 15,
-        color: '#1e293b',
-        fontWeight: 'bold',
-    },
-    footer: {
-        padding: 20,
-        paddingTop: 0,
-        alignItems: 'center',
-    },
-    // Swipe Button Styles
-    swipeContainer: {
-        width: BUTTON_WIDTH,
-        height: BUTTON_HEIGHT,
-        backgroundColor: '#f1f5f9',
-        borderRadius: BUTTON_HEIGHT / 2,
-        justifyContent: 'center',
-        padding: BUTTON_PADDING,
-        position: 'relative',
-        borderWidth: 1,
-        borderColor: '#e2e8f0',
-    },
-    swipeable: {
-        width: SWIPEABLE_DIMENSIONS,
-        height: SWIPEABLE_DIMENSIONS,
-        borderRadius: SWIPEABLE_DIMENSIONS / 2,
-        backgroundColor: 'white',
-        justifyContent: 'center',
-        alignItems: 'center',
-        zIndex: 3,
-        shadowColor: '#000',
-        shadowOpacity: 0.1,
-        shadowRadius: 2,
-        elevation: 2,
-    },
-    swipeText: {
-        position: 'absolute',
-        alignSelf: 'center',
-        fontSize: 16,
-        fontWeight: 'bold',
-        color: '#64748b',
-        zIndex: 2,
-    },
-    colorOverlay: {
-        position: 'absolute',
-        left: 0,
-        top: 0,
-        bottom: 0,
-        backgroundColor: '#22c55e', // Green
-        borderRadius: BUTTON_HEIGHT / 2,
-        zIndex: 1,
-    },
-    timerContainer: {
-        marginTop: 16,
-        backgroundColor: '#f8fafc',
-        paddingHorizontal: 12,
-        paddingVertical: 6,
-        borderRadius: 20,
-        borderWidth: 1,
-        borderColor: '#e2e8f0',
-    },
-    timerText: {
-        fontSize: 12,
-        color: '#64748b',
-    },
+    overlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.6)', zIndex: 2000, justifyContent: 'flex-end', alignItems: 'center', paddingBottom: 40 },
+    rejectBtn: { position: 'absolute', top: 60, right: 20, backgroundColor: '#4b5563', flexDirection: 'row', alignItems: 'center', paddingVertical: 10, paddingHorizontal: 20, borderRadius: 30, zIndex: 2001 },
+    rejectText: { color: 'white', fontWeight: 'bold', marginLeft: 8 },
+    card: { width: width - 32, backgroundColor: 'white', borderRadius: 24, overflow: 'hidden', elevation: 10 },
+    header: { backgroundColor: '#2563eb', padding: 20, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+    headerContent: { flexDirection: 'row', alignItems: 'center' },
+    iconBox: { backgroundColor: 'rgba(255,255,255,0.2)', padding: 8, borderRadius: 12, marginRight: 12 },
+    headerTitle: { color: 'white', fontSize: 18, fontWeight: 'bold' },
+    headerSubtitleRow: { flexDirection: 'row', alignItems: 'center', marginTop: 2 },
+    headerSubtitle: { color: '#bfdbfe', fontSize: 12 },
+    pulsingDot: { width: 12, height: 12, borderRadius: 6, backgroundColor: '#4ade80', borderWidth: 2, borderColor: '#2563eb' },
+    body: { padding: 20, gap: 12 },
+    infoRow: { flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 12, borderWidth: 1 },
+    infoIconBox: { padding: 8, borderRadius: 8, marginRight: 12 },
+    infoLabel: { fontSize: 12, color: '#64748b', fontWeight: '600' },
+    infoValue: { fontSize: 15, color: '#1e293b', fontWeight: 'bold' },
+    footer: { padding: 20, paddingTop: 0, alignItems: 'center' },
+    swipeContainer: { width: BUTTON_WIDTH, height: BUTTON_HEIGHT, backgroundColor: '#f1f5f9', borderRadius: BUTTON_HEIGHT / 2, justifyContent: 'center', padding: BUTTON_PADDING, borderWidth: 1, borderColor: '#e2e8f0' },
+    swipeable: { width: SWIPEABLE_DIMENSIONS, height: SWIPEABLE_DIMENSIONS, borderRadius: SWIPEABLE_DIMENSIONS / 2, backgroundColor: 'white', justifyContent: 'center', alignItems: 'center', zIndex: 3, elevation: 2 },
+    swipeText: { position: 'absolute', alignSelf: 'center', fontSize: 16, fontWeight: 'bold', color: '#64748b', zIndex: 2 },
+    colorOverlay: { position: 'absolute', left: 0, top: 0, bottom: 0, backgroundColor: '#22c55e', borderRadius: BUTTON_HEIGHT / 2, zIndex: 1 },
+    timerContainer: { marginTop: 16, backgroundColor: '#f8fafc', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, borderWidth: 1, borderColor: '#e2e8f0' },
+    timerText: { fontSize: 12, color: '#64748b' },
 });
