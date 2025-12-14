@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Image, Alert, ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
-import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Mail, ArrowRight } from 'lucide-react-native';
+import { useRouter } from 'expo-router';
+import { ArrowRight, Mail } from 'lucide-react-native';
+import React, { useState } from 'react';
+import { ActivityIndicator, Alert, Image, KeyboardAvoidingView, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import api from '../utils/api';
 
@@ -14,7 +14,7 @@ export default function LoginScreen() {
 
   const handleEmailLogin = async () => {
     setError('');
-    
+
     if (!email) {
       setError('Please enter your email.');
       return;
@@ -30,22 +30,29 @@ export default function LoginScreen() {
     try {
       // Calling your existing backend endpoint
       const res = await api.post('/users/Login_SignUp/', { email: email });
-      
-      console.log("Login Response:", res.data);
 
+      console.log("Login Response:", res.data);
+      console.log("Login Response Headers:", res.headers); // Debugging
+      let cookie = res.headers['set-cookie'];
+
+      // If it's an array (common in React Native), join it into a string
+      if (Array.isArray(cookie)) {
+        cookie = cookie.join('; ');
+      }
       // Navigate to Verify screen (You need to create this later)
       router.push({
         pathname: "/verify",
-        params: { 
-          key: res.data.key, 
-          id: res.data.id, 
-          email: email 
+        params: {
+          key: res.data.key,
+          id: res.data.id,
+          email: email,
+          cookie: cookie || '' // <--- Pass the cookie here
         }
       });
 
     } catch (err) {
       console.error("Login failed:", err);
-      const errorMessage = err?.response?.data?.error || 'Connection failed. Check your network.';
+      const errorMessage = err?.res?.data?.error || 'Connection failed. Check your network.';
       setError(errorMessage);
       Alert.alert("Error", errorMessage);
     } finally {
@@ -60,19 +67,19 @@ export default function LoginScreen() {
       className="flex-1"
     >
       <SafeAreaView className="flex-1">
-        <KeyboardAvoidingView 
+        <KeyboardAvoidingView
           behavior={Platform.OS === "ios" ? "padding" : "height"}
           className="flex-1 justify-center px-6"
         >
           <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center' }}>
-            
+
             {/* Main Card Container */}
             <View className="bg-white/90 p-6 rounded-3xl shadow-xl backdrop-blur-md border border-white/20">
-              
+
               {/* Header / Logo Section */}
               <View className="items-center mb-8">
                 <View className="bg-blue-100 p-4 rounded-full mb-4">
-                  <Image 
+                  <Image
                     source={require('../assets/images/react-logo.png')} // Replace with your ms.png
                     className="w-16 h-16 rounded-full"
                     resizeMode="contain"
@@ -129,9 +136,8 @@ export default function LoginScreen() {
                 <TouchableOpacity
                   onPress={handleEmailLogin}
                   disabled={loading}
-                  className={`w-full py-4 rounded-xl flex-row justify-center items-center mt-4 ${
-                    loading || !email ? 'bg-slate-400' : 'bg-slate-900'
-                  }`}
+                  className={`w-full py-4 rounded-xl flex-row justify-center items-center mt-4 ${loading || !email ? 'bg-slate-400' : 'bg-slate-900'
+                    }`}
                 >
                   {loading ? (
                     <>

@@ -1,14 +1,249 @@
-import { View, Text } from 'react-native';
-import { useLocalSearchParams } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { ArrowLeft } from 'lucide-react-native';
+import { useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import api from '../utils/api';
 
 export default function VerifyScreen() {
-  const params = useLocalSearchParams();
+    const router = useRouter();
+    const params = useLocalSearchParams(); // Get data passed from Login page
 
-  return (
-    <View className="flex-1 justify-center items-center bg-white">
-      <Text className="text-xl font-bold">Verify OTP Screen</Text>
-      <Text className="text-slate-500 mt-2">Email: {params.email}</Text>
-      <Text className="text-slate-500">ID: {params.id}</Text>
-    </View>
-  );
+    // State Management
+    const [otp, setOtp] = useState(new Array(6).fill(''));
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState('');
+
+    // Timer State
+    const [timer, setTimer] = useState(120);
+    const [isResendDisabled, setIsResendDisabled] = useState(true);
+
+    // Refs for the 6 inputs to manage focus
+    const inputRefs = useRef([]);
+
+    // Context data (ID and Key are critical for verification)
+    const [ctx, setCtx] = useState({
+        key: params.key || null,
+        id: params.id || null,
+        status: params.status || null,
+        email: params.email || null,
+    });
+
+    const sessionCookie = params.cookie;
+    // Timer Logic
+    useEffect(() => {
+        let interval;
+        if (isResendDisabled && timer > 0) {
+            interval = setInterval(() => {
+                setTimer((prev) => prev - 1);
+            }, 1000);
+        } else if (timer === 0) {
+            setIsResendDisabled(false);
+        }
+        return () => clearInterval(interval);
+    }, [isResendDisabled, timer]);
+
+    // Handle Input Change
+    const handleChange = (text, index) => {
+        // Only allow numbers
+        if (isNaN(text)) return;
+
+        const newOtp = [...otp];
+        newOtp[index] = text;
+        setOtp(newOtp);
+
+        // Auto-focus next input if typing a number
+        if (text.length === 1 && index < 5) {
+            inputRefs.current[index + 1]?.focus();
+        }
+
+        // Auto-focus previous input if deleting (handled better in onKeyPress)
+    };
+
+    // Handle Backspace
+    const handleKeyPress = (e, index) => {
+        if (e.nativeEvent.key === 'Backspace') {
+            // If current box is empty, move to previous
+            if (!otp[index] && index > 0) {
+                inputRefs.current[index - 1]?.focus();
+                // Clear previous box value
+                const newOtp = [...otp];
+                newOtp[index - 1] = '';
+                setOtp(newOtp);
+            }
+        }
+    };
+
+    // 1. Verify OTP Function
+    const verifyOtp = async () => {
+        setError('');
+        const code = otp.join('');
+
+        if (code.length !== 6) {
+            setError('Please enter the full 6-digit code.');
+            return;
+        }
+
+        setLoading(true);
+        try {
+            const payload = {
+                key: ctx.key,
+                id: ctx.id,
+                otp: otp.join('')
+            };
+
+            // 2. ATTACH THE COOKIE TO THE HEADERS
+            await api.post('/users/otp-verify/', payload, {
+                headers: {
+                    'Cookie': sessionCookie // <--- Send it back to the server
+                }
+            });
+
+            // Success Logic
+            if (ctx.status === 'New User') {
+                router.replace({
+                    pathname: '/form',
+                    params: { status: 'Manual', cookie: sessionCookie } // Keep passing cookie if needed for next steps!
+                });
+            } else {
+                router.replace('/');
+            }
+
+        } catch (err) {
+            console.error('Verify Error:', err.response?.status);
+            setError('Verification failed. Session may have expired.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // 2. Resend OTP Function
+    const resendOtp = async () => {
+        if (isResendDisabled) return;
+        setError('');
+        setLoading(true);
+
+        try {
+            const res = await api.post('/users/resend-otp/', { key: ctx.key, id: ctx.id });
+
+            // Update Context with new keys if backend rotates them
+            if (res.data.key) setCtx(prev => ({ ...prev, key: res.data.key }));
+            if (res.data.id) setCtx(prev => ({ ...prev, id: res.data.id }));
+
+            Alert.alert("Sent!", "A new code has been sent to your email.");
+
+            // Reset Timer
+            setIsResendDisabled(true);
+            setTimer(120);
+            setOtp(new Array(6).fill(''));
+            inputRefs.current[0]?.focus();
+
+        } catch (err) {
+            setError('Could not resend code. Try again later.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // Format Timer (MM:SS)
+    const formatTime = (seconds) => {
+        const m = Math.floor(seconds / 60);
+        const s = seconds % 60;
+        return `${m}:${s < 10 ? '0' : ''}${s}`;
+    };
+
+    return (
+        <LinearGradient
+            colors={['#f8fafc', '#e2e8f0']}
+            className="flex-1"
+        >
+            <SafeAreaView className="flex-1">
+                <KeyboardAvoidingView
+                    behavior={Platform.OS === "ios" ? "padding" : "height"}
+                    className="flex-1 px-6"
+                >
+                    {/* Back Button */}
+                    <TouchableOpacity
+                        onPress={() => router.back()}
+                        className="mt-4 mb-8"
+                    >
+                        <ArrowLeft color="#334155" size={24} />
+                    </TouchableOpacity>
+
+                    <ScrollView showsVerticalScrollIndicator={false}>
+                        {/* Header */}
+                        <View className="items-center mb-10">
+                            <Text className="text-3xl font-bold text-slate-800 text-center mb-2">
+                                Verification
+                            </Text>
+                            <Text className="text-slate-500 text-center text-base px-8">
+                                We've sent a 6-digit code to
+                            </Text>
+                            {ctx.email && (
+                                <View className="bg-blue-100 px-4 py-1 rounded-full mt-2">
+                                    <Text className="text-blue-800 font-semibold">{ctx.email}</Text>
+                                </View>
+                            )}
+                        </View>
+
+                        {/* OTP Input Container */}
+                        <View className="flex-row justify-between mb-8">
+                            {otp.map((digit, index) => (
+                                <TextInput
+                                    key={index}
+                                    ref={(ref) => inputRefs.current[index] = ref}
+                                    value={digit}
+                                    onChangeText={(text) => handleChange(text, index)}
+                                    onKeyPress={(e) => handleKeyPress(e, index)}
+                                    keyboardType="number-pad"
+                                    maxLength={1}
+                                    selectTextOnFocus
+                                    className={`w-12 h-14 border-2 rounded-xl text-center text-2xl font-bold bg-white
+                    ${digit ? 'border-slate-800 text-slate-800' : 'border-slate-300 text-slate-400'}
+                    ${error ? 'border-red-500' : ''}
+                  `}
+                                />
+                            ))}
+                        </View>
+
+                        {/* Error Message */}
+                        {error ? (
+                            <Text className="text-red-500 text-center mb-4 font-medium">
+                                {error}
+                            </Text>
+                        ) : null}
+
+                        {/* Timer & Resend */}
+                        <View className="items-center mb-8">
+                            {isResendDisabled ? (
+                                <Text className="text-slate-400">
+                                    Resend code in <Text className="font-bold text-slate-600">{formatTime(timer)}</Text>
+                                </Text>
+                            ) : (
+                                <TouchableOpacity onPress={resendOtp}>
+                                    <Text className="text-blue-600 font-bold text-lg">Resend Code</Text>
+                                </TouchableOpacity>
+                            )}
+                        </View>
+
+                        {/* Verify Button */}
+                        <TouchableOpacity
+                            onPress={verifyOtp}
+                            disabled={loading}
+                            className={`w-full py-4 rounded-xl items-center shadow-lg ${loading ? 'bg-slate-400' : 'bg-slate-900'
+                                }`}
+                        >
+                            {loading ? (
+                                <ActivityIndicator color="white" />
+                            ) : (
+                                <Text className="text-white font-bold text-lg">Verify & Proceed</Text>
+                            )}
+                        </TouchableOpacity>
+
+                    </ScrollView>
+                </KeyboardAvoidingView>
+            </SafeAreaView>
+        </LinearGradient>
+    );
 }
