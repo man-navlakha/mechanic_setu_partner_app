@@ -13,6 +13,7 @@ import {
     XCircle
 } from 'lucide-react-native';
 import { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
     ActivityIndicator,
     Alert,
@@ -50,6 +51,7 @@ export default function JobDetailsPage() {
     const { id } = useLocalSearchParams();
     const router = useRouter();
     const mapRef = useRef(null);
+    const { t } = useTranslation();
 
     const { job, completeJob, cancelJob, mechanicCoords } = useWebSocket();
 
@@ -103,7 +105,7 @@ export default function JobDetailsPage() {
 
     const handleCall = () => {
         if (job?.mobile_number) Linking.openURL(`tel:${job.mobile_number}`);
-        else Alert.alert("No Number", "Customer phone not available.");
+        else Alert.alert(t('job.noNumber'), t('job.phoneNotAvailable'));
     };
 
     const onCompleteBtnPress = () => {
@@ -112,7 +114,7 @@ export default function JobDetailsPage() {
 
     const submitCompletion = async () => {
         if (!priceInput || isNaN(priceInput) || parseFloat(priceInput) < 0) {
-            Alert.alert("Invalid Price", "Please enter a valid amount.");
+            Alert.alert(t('job.invalidPrice'), t('job.enterValidAmount'));
             return;
         }
 
@@ -122,7 +124,7 @@ export default function JobDetailsPage() {
             setCompleteModalVisible(false);
             // Context handles redirect usually, or we can push back
         } catch (err) {
-            Alert.alert("Error", "Failed to complete job.");
+            Alert.alert(t('form.error'), t('job.failedComplete'));
         } finally {
             setLoading(false);
         }
@@ -130,7 +132,7 @@ export default function JobDetailsPage() {
 
     const handleCancel = async () => {
         if (!cancelReason.trim()) {
-            Alert.alert("Required", "Please select or type a reason.");
+            Alert.alert(t('job.required'), t('job.selectOrTypeReason'));
             return;
         }
         setLoading(true);
@@ -139,7 +141,7 @@ export default function JobDetailsPage() {
             setCancelModalVisible(false);
             router.replace('/dashboard'); // Ensure we leave the page
         } catch (err) {
-            Alert.alert("Error", "Failed to cancel job.");
+            Alert.alert(t('form.error'), t('job.failedCancel'));
         } finally {
             setLoading(false);
         }
@@ -151,7 +153,7 @@ export default function JobDetailsPage() {
                 <View className="bg-white p-6 rounded-full shadow-lg mb-6">
                     <ActivityIndicator size="large" color="#4f46e5" />
                 </View>
-                <Text className="text-slate-600 font-medium text-lg tracking-wide">Fetching Job Details...</Text>
+                <Text className="text-slate-600 font-medium text-lg tracking-wide">{t('job.fetchingDetails')}</Text>
             </View>
         );
     }
@@ -209,7 +211,7 @@ export default function JobDetailsPage() {
                                 <Car size={20} color="white" />
                             </View>
                             <View className="bg-white px-2 py-1 rounded-md shadow-md mt-1">
-                                <Text className="text-[10px] font-bold text-indigo-900 leading-3">Customer</Text>
+                                <Text className="text-[10px] font-bold text-indigo-900 leading-3">{t('job.customer')}</Text>
                             </View>
                         </View>
                     </Marker>
@@ -269,7 +271,7 @@ export default function JobDetailsPage() {
                                 </Text>
                                 <View className="flex-row items-center mt-0.5">
                                     <Shield size={12} color="#64748b" />
-                                    <Text className="text-slate-500 text-xs ml-1 font-medium">Verified Customer</Text>
+                                    <Text className="text-slate-500 text-xs ml-1 font-medium">{t('job.verifiedCustomer')}</Text>
                                 </View>
                             </View>
                         </View>
@@ -282,7 +284,7 @@ export default function JobDetailsPage() {
                     </View>
 
                     {/* Job Details Grid */}
-                    <Text className="text-slate-900 font-bold text-lg mb-4">Service Details</Text>
+                    <Text className="text-slate-900 font-bold text-lg mb-4">{t('job.serviceDetails')}</Text>
 
                     <View className="space-y-4 mb-8">
                         {/* Vehicle Card */}
@@ -291,8 +293,8 @@ export default function JobDetailsPage() {
                                 <Car size={22} color="#4338ca" />
                             </View>
                             <View className="ml-4 flex-1">
-                                <Text className="text-xs text-slate-500 font-bold uppercase tracking-wider">Vehicle</Text>
-                                <Text className="text-base font-semibold text-slate-800 mt-0.5 max-w-[90%]">{job.vehical_type || "Unknown Vehicle"}</Text>
+                                <Text className="text-xs text-slate-500 font-bold uppercase tracking-wider">{t('job.vehicle')}</Text>
+                                <Text className="text-base font-semibold text-slate-800 mt-0.5 max-w-[90%]">{job.vehical_type || t('job.unknownVehicle')}</Text>
                             </View>
                         </View>
 
@@ -302,7 +304,7 @@ export default function JobDetailsPage() {
                                 <AlertTriangle size={22} color="#ea580c" />
                             </View>
                             <View className="ml-4 flex-1">
-                                <Text className="text-xs text-orange-600/70 font-bold uppercase tracking-wider">Reported Issue</Text>
+                                <Text className="text-xs text-orange-600/70 font-bold uppercase tracking-wider">{t('job.reportedIssue')}</Text>
                                 <Text className="text-base font-semibold text-slate-800 mt-0.5 leading-5">{job.problem}</Text>
                             </View>
                         </View>
@@ -312,7 +314,7 @@ export default function JobDetailsPage() {
                             <View className="flex-1 bg-slate-50 p-4 rounded-2xl border border-slate-100 flex-row items-center">
                                 <MapPin size={18} color="#64748b" />
                                 <View className="ml-3">
-                                    <Text className="text-xs text-slate-400 font-bold uppercase">Distance</Text>
+                                    <Text className="text-xs text-slate-400 font-bold uppercase">{t('job.distance')}</Text>
                                     <Text className="text-sm font-bold text-slate-800">
                                         {distance ? `${distance.toFixed(1)} km` : "..."}
                                     </Text>
@@ -321,7 +323,7 @@ export default function JobDetailsPage() {
                             <View className="flex-1 bg-slate-50 p-4 rounded-2xl border border-slate-100 flex-row items-center">
                                 <Clock size={18} color="#64748b" />
                                 <View className="ml-3">
-                                    <Text className="text-xs text-slate-400 font-bold uppercase">ETA</Text>
+                                    <Text className="text-xs text-slate-400 font-bold uppercase">{t('job.eta')}</Text>
                                     <Text className="text-sm font-bold text-slate-800">
                                         {distance ? `${Math.ceil(distance * 3)} mins` : "..."}
                                     </Text>
@@ -342,7 +344,7 @@ export default function JobDetailsPage() {
                             <>
                                 <CheckCircle size={22} color="white" className="mr-2.5" strokeWidth={2.5} />
                                 <Text className="text-white font-bold text-lg tracking-wide">
-                                    Complete Job
+                                    {t('job.completeJob')}
                                 </Text>
                             </>
                         )}
@@ -376,9 +378,9 @@ export default function JobDetailsPage() {
                             <CheckCircle size={32} color="#16a34a" strokeWidth={3} />
                         </View>
 
-                        <Text className="text-2xl font-bold text-slate-900 mb-2">Job Successful!</Text>
+                        <Text className="text-2xl font-bold text-slate-900 mb-2">{t('job.jobSuccessful')}</Text>
                         <Text className="text-slate-500 text-center text-sm mb-8 px-4 leading-5">
-                            Great work! Please enter the final amount collected from the customer to close this ticket.
+                            {t('job.enterAmount')}
                         </Text>
 
                         <View className="w-full flex-row items-center bg-slate-50 border border-slate-200 rounded-2xl px-5 py-4 mb-2 focus:border-indigo-500 focus:bg-white transition-colors">
@@ -394,20 +396,20 @@ export default function JobDetailsPage() {
                                 selectionColor="#4f46e5"
                             />
                         </View>
-                        <Text className="text-xs text-slate-400 self-start ml-2 mb-6">Total Amount (Cash/Online)</Text>
+                        <Text className="text-xs text-slate-400 self-start ml-2 mb-6">{t('job.totalAmount')}</Text>
 
                         <View className="flex-row gap-3 w-full">
                             <TouchableOpacity
                                 onPress={() => setCompleteModalVisible(false)}
                                 className="flex-1 py-4 rounded-2xl bg-slate-100 items-center active:bg-slate-200"
                             >
-                                <Text className="font-bold text-slate-600 text-[15px]">Cancel</Text>
+                                <Text className="font-bold text-slate-600 text-[15px]">{t('job.cancel')}</Text>
                             </TouchableOpacity>
                             <TouchableOpacity
                                 onPress={submitCompletion}
                                 className="flex-1 py-4 rounded-2xl bg-indigo-600 items-center shadow-lg shadow-indigo-300 active:bg-indigo-700"
                             >
-                                <Text className="font-bold text-white text-[15px]">Confirm</Text>
+                                <Text className="font-bold text-white text-[15px]">{t('job.confirm')}</Text>
                             </TouchableOpacity>
                         </View>
                     </View>
@@ -428,8 +430,8 @@ export default function JobDetailsPage() {
 
                         <View className="flex-row justify-between items-center mb-6">
                             <View>
-                                <Text className="text-2xl font-bold text-slate-900">Cancel Job</Text>
-                                <Text className="text-slate-500 text-sm mt-1">Please select a reason for cancellation</Text>
+                                <Text className="text-2xl font-bold text-slate-900">{t('job.cancelJob')}</Text>
+                                <Text className="text-slate-500 text-sm mt-1">{t('job.selectReason')}</Text>
                             </View>
                             <TouchableOpacity
                                 onPress={() => setCancelModalVisible(false)}
@@ -453,9 +455,9 @@ export default function JobDetailsPage() {
                                 ))}
                             </View>
 
-                            <Text className="text-slate-900 font-bold mb-3">Other Reason</Text>
+                            <Text className="text-slate-900 font-bold mb-3">{t('job.otherReason')}</Text>
                             <TextInput
-                                placeholder="Type your reason here..."
+                                placeholder={t('job.typeReason')}
                                 value={cancelReason}
                                 onChangeText={setCancelReason}
                                 multiline
@@ -473,7 +475,7 @@ export default function JobDetailsPage() {
                                 {loading ? <ActivityIndicator color="white" /> : (
                                     <>
                                         <AlertTriangle size={20} color="white" />
-                                        <Text className="text-white font-bold text-lg">Confirm Cancellation</Text>
+                                        <Text className="text-white font-bold text-lg">{t('job.confirmCancel')}</Text>
                                     </>
                                 )}
                             </TouchableOpacity>

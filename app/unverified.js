@@ -2,12 +2,14 @@
 import { useRouter } from 'expo-router';
 import { AlertCircle, BadgeCheck, Clock } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../context/AuthContext';
 
 export default function UnverifiedScreen() {
     const router = useRouter();
+    const { t } = useTranslation();
     const { profile, refreshProfile, logout } = useAuth();
     const [checking, setChecking] = useState(false);
 
@@ -36,16 +38,16 @@ export default function UnverifiedScreen() {
                 <View className="items-center p-6 bg-white rounded-2xl shadow-sm w-full">
                     <BadgeCheck size={80} color="#16a34a" />
                     <Text className="text-2xl font-bold text-green-600 mt-4 mb-2 text-center">
-                        Account Verified
+                        {t('unverified.verified')}
                     </Text>
                     <Text className="text-slate-600 text-center mb-6">
-                        Your account has been successfully verified. You can now access all features.
+                        {t('unverified.verifiedDesc')}
                     </Text>
                     <TouchableOpacity
                         onPress={() => router.replace('/dashboard')}
                         className="bg-blue-600 w-full py-3 rounded-xl"
                     >
-                        <Text className="text-white text-center font-bold text-lg">Go to Dashboard</Text>
+                        <Text className="text-white text-center font-bold text-lg">{t('unverified.goToDashboard')}</Text>
                     </TouchableOpacity>
                 </View>
             );
@@ -57,16 +59,16 @@ export default function UnverifiedScreen() {
                 <View className="items-center p-6 bg-white rounded-2xl shadow-sm w-full">
                     <Clock size={80} color="#ca8a04" />
                     <Text className="text-2xl font-bold text-yellow-600 mt-4 mb-2 text-center">
-                        Verification Pending
+                        {t('unverified.pending')}
                     </Text>
                     <Text className="text-slate-600 text-center mb-6">
-                        Your KYC document has been submitted and is awaiting review. This usually takes 24-48 hours.
+                        {t('unverified.pendingDesc')}
                     </Text>
                     <TouchableOpacity
                         onPress={handleRefresh}
                         className="bg-slate-100 border border-slate-300 w-full py-3 rounded-xl flex-row justify-center items-center"
                     >
-                        {checking ? <ActivityIndicator color="#000" /> : <Text className="text-slate-700 font-bold">Check Status Again</Text>}
+                        {checking ? <ActivityIndicator color="#000" /> : <Text className="text-slate-700 font-bold">{t('unverified.checkStatus')}</Text>}
                     </TouchableOpacity>
                 </View>
             );
@@ -77,20 +79,20 @@ export default function UnverifiedScreen() {
             <View className="items-center p-6 bg-white rounded-2xl shadow-sm w-full">
                 <AlertCircle size={80} color="#dc2626" />
                 <Text className="text-2xl font-bold text-red-600 mt-4 mb-2 text-center">
-                    Account Not Verified
+                    {t('unverified.notVerified')}
                 </Text>
                 <Text className="text-slate-600 text-center mb-6">
-                    Please complete your KYC to get full access to your mechanic profile.
+                    {t('unverified.notVerifiedDesc')}
                 </Text>
                 <TouchableOpacity
                     onPress={() => router.push('/form')}
                     className="bg-yellow-500 w-full py-3 rounded-xl mb-3"
                 >
-                    <Text className="text-white text-center font-bold text-lg">Complete KYC</Text>
+                    <Text className="text-white text-center font-bold text-lg">{t('unverified.completeKyc')}</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity onPress={logout}>
-                    <Text className="text-slate-400 text-sm">Log Out</Text>
+                    <Text className="text-slate-400 text-sm">{t('unverified.logout')}</Text>
                 </TouchableOpacity>
             </View>
         );

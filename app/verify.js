@@ -1,18 +1,23 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { ArrowLeft } from 'lucide-react-native';
+import { ArrowLeft, Globe } from 'lucide-react-native';
 import { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import LanguageModal from '../components/LanguageModal';
 import { useAuth } from '../context/AuthContext';
 import api from '../utils/api';
 
 export default function VerifyScreen() {
     const { login } = useAuth();
     const router = useRouter();
-    const params = useLocalSearchParams(); // Get data passed from Login page
+    const { t } = useTranslation();
+    const params = useLocalSearchParams();
 
     // State Management
+
+    const [showLanguageModal, setShowLanguageModal] = useState(false);
     const [otp, setOtp] = useState(new Array(6).fill(''));
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
@@ -95,27 +100,44 @@ export default function VerifyScreen() {
                 otp: otp.join('')
             };
 
+            console.log("[Verify] Session Cookie from params:", sessionCookie);
+            console.log("[Verify] Sending OTP verification...");
+
             // 2. ATTACH THE COOKIE TO THE HEADERS
-            await api.post('/users/otp-verify/', payload, {
+            const verifyRes = await api.post('/users/otp-verify/', payload, {
                 headers: {
                     'Cookie': sessionCookie // <--- Send it back to the server
                 }
             });
 
+            console.log("[Verify] Response Status:", verifyRes.status);
+            console.log("[Verify] Response Headers:", verifyRes.headers);
+
+            // Check if verify response has a new cookie
+            let newCookie = verifyRes.headers['set-cookie'];
+            if (Array.isArray(newCookie)) {
+                newCookie = newCookie.join('; ');
+            }
+            console.log("[Verify] New Cookie from verify response:", newCookie);
+
+            // Use the cookie from verify response if available, otherwise use the one from login
+            const cookieToSave = newCookie || sessionCookie || params.cookie;
+            console.log("[Verify] Cookie to save:", cookieToSave);
+
             await login(
                 { id: ctx.id, status: ctx.status }, // User Data
-                params.cookie // Cookie passed from Login Screen
+                cookieToSave // Cookie to save
             );
 
             // Navigate
             if (ctx.status === 'New User') {
                 router.replace('/form');
             } else {
-                router.replace('/');
+                router.replace('/dashboard');
             }
 
         } catch (err) {
-            console.error('Verify Error:', err.response?.status);
+            console.error('[Verify] Error:', err.response?.status, err.response?.data);
             setError('Verification failed. Session may have expired.');
         } finally {
             setLoading(false);
@@ -175,14 +197,23 @@ export default function VerifyScreen() {
                         <ArrowLeft color="#334155" size={24} />
                     </TouchableOpacity>
 
+                    <View className="absolute top-4 right-0 z-50">
+                        <TouchableOpacity
+                            onPress={() => setShowLanguageModal(true)}
+                            className="bg-white/80 p-2 rounded-full shadow-sm border border-slate-200"
+                        >
+                            <Globe size={24} color="#475569" />
+                        </TouchableOpacity>
+                    </View>
+
                     <ScrollView showsVerticalScrollIndicator={false}>
                         {/* Header */}
                         <View className="items-center mb-10">
                             <Text className="text-3xl font-bold text-slate-800 text-center mb-2">
-                                Verification
+                                {t('verify.Verification')}
                             </Text>
                             <Text className="text-slate-500 text-center text-base px-8">
-                                We've sent a 6-digit code to
+                                {t('verify.WeveSent')}
                             </Text>
                             {ctx.email && (
                                 <View className="bg-blue-100 px-4 py-1 rounded-full mt-2">
@@ -222,11 +253,11 @@ export default function VerifyScreen() {
                         <View className="items-center mb-8">
                             {isResendDisabled ? (
                                 <Text className="text-slate-400">
-                                    Resend code in <Text className="font-bold text-slate-600">{formatTime(timer)}</Text>
+                                    {t('verify.Resend code in')} <Text className="font-bold text-slate-600">{formatTime(timer)}</Text>
                                 </Text>
                             ) : (
                                 <TouchableOpacity onPress={resendOtp}>
-                                    <Text className="text-blue-600 font-bold text-lg">Resend Code</Text>
+                                    <Text className="text-blue-600 font-bold text-lg">{t('verify.Resend code')}</Text>
                                 </TouchableOpacity>
                             )}
                         </View>
@@ -241,9 +272,14 @@ export default function VerifyScreen() {
                             {loading ? (
                                 <ActivityIndicator color="white" />
                             ) : (
-                                <Text className="text-white font-bold text-lg">Verify & Proceed</Text>
+                                <Text className="text-white font-bold text-lg">{t('verify.Verify & Proceed')}</Text>
                             )}
                         </TouchableOpacity>
+
+                        <LanguageModal
+                            visible={showLanguageModal}
+                            onClose={() => setShowLanguageModal(false)}
+                        />
 
                     </ScrollView>
                 </KeyboardAvoidingView>

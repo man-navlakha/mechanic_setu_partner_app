@@ -1,5 +1,6 @@
 import { Bike, Car, Check, ChevronsRight, Clock, MapPin, Truck, Wrench, X } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Dimensions, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
@@ -27,7 +28,7 @@ const getVehicleIcon = (type) => {
 };
 
 // --- Modern Swipe Button Component ---
-const SwipeButton = ({ onToggle }) => {
+const SwipeButton = ({ onToggle, t }) => {
     const X = useSharedValue(0);
     const [isSuccess, setIsSuccess] = useState(false);
 
@@ -74,7 +75,7 @@ const SwipeButton = ({ onToggle }) => {
         <View style={styles.swipeContainer}>
             <Animated.View style={[styles.colorOverlay, animatedOverlayStyle]} />
             <Animated.Text style={[styles.swipeText, animatedTextStyle]}>
-                {isSuccess ? "Accepted!" : "Swipe to Accept"}
+                {isSuccess ? t('jobPopup.accepted') : t('jobPopup.swipeToAccept')}
             </Animated.Text>
             <GestureDetector gesture={panGesture}>
                 <Animated.View style={[styles.swipeable, animatedKnobStyle]}>
@@ -86,7 +87,7 @@ const SwipeButton = ({ onToggle }) => {
 };
 
 // --- Countdown Timer ---
-const CountdownTimer = ({ seconds, onExpire }) => {
+const CountdownTimer = ({ seconds, onExpire, t }) => {
     const [timeLeft, setTimeLeft] = useState(seconds);
 
     useEffect(() => {
@@ -100,20 +101,21 @@ const CountdownTimer = ({ seconds, onExpire }) => {
 
     return (
         <Text style={styles.timerText}>
-            Auto-reject in <Text style={{ color: '#d97706', fontWeight: 'bold' }}>{timeLeft}s</Text>
+            {t('jobPopup.autoReject')} <Text style={{ color: '#d97706', fontWeight: 'bold' }}>{timeLeft}s</Text>
         </Text>
     );
 };
 
 // --- Main Component ---
 export default function JobNotificationPopup({ job, onAccept, onReject }) {
+    const { t } = useTranslation();
     if (!job) return null;
 
     return (
         <View style={styles.overlay}>
             <TouchableOpacity onPress={onReject} style={styles.rejectBtn}>
                 <X size={20} color="white" />
-                <Text style={styles.rejectText}>Reject</Text>
+                <Text style={styles.rejectText}>{t('jobPopup.reject')}</Text>
             </TouchableOpacity>
 
             <View style={styles.card}>
@@ -121,10 +123,10 @@ export default function JobNotificationPopup({ job, onAccept, onReject }) {
                     <View style={styles.headerContent}>
                         <View style={styles.iconBox}><Wrench size={24} color="white" /></View>
                         <View>
-                            <Text style={styles.headerTitle}>New Service Request</Text>
+                            <Text style={styles.headerTitle}>{t('jobPopup.newRequest')}</Text>
                             <View style={styles.headerSubtitleRow}>
                                 <Clock size={12} color="#bfdbfe" />
-                                <Text style={styles.headerSubtitle}> Just now</Text>
+                                <Text style={styles.headerSubtitle}> {t('jobPopup.justNow')}</Text>
                             </View>
                         </View>
                     </View>
@@ -135,32 +137,32 @@ export default function JobNotificationPopup({ job, onAccept, onReject }) {
                     <View style={[styles.infoRow, { backgroundColor: '#eff6ff', borderColor: '#dbeafe' }]}>
                         <View style={[styles.infoIconBox, { backgroundColor: '#dbeafe' }]}>{getVehicleIcon(job.vehical_type)}</View>
                         <View>
-                            <Text style={styles.infoLabel}>Vehicle Type</Text>
-                            <Text style={styles.infoValue}>{job.vehical_type || 'Unknown'}</Text>
+                            <Text style={styles.infoLabel}>{t('jobPopup.vehicleType')}</Text>
+                            <Text style={styles.infoValue}>{job.vehical_type || t('jobPopup.unknown')}</Text>
                         </View>
                     </View>
 
                     <View style={[styles.infoRow, { backgroundColor: '#fffbeb', borderColor: '#fef3c7' }]}>
                         <View style={[styles.infoIconBox, { backgroundColor: '#fef3c7' }]}><Wrench size={20} color="#d97706" /></View>
                         <View style={{ flex: 1 }}>
-                            <Text style={styles.infoLabel}>Problem</Text>
-                            <Text style={styles.infoValue} numberOfLines={2}>{job.problem || 'No description'}</Text>
+                            <Text style={styles.infoLabel}>{t('jobPopup.problem')}</Text>
+                            <Text style={styles.infoValue} numberOfLines={2}>{job.problem || t('jobPopup.noDescription')}</Text>
                         </View>
                     </View>
 
                     <View style={[styles.infoRow, { backgroundColor: '#f0fdf4', borderColor: '#dcfce7' }]}>
                         <View style={[styles.infoIconBox, { backgroundColor: '#dcfce7' }]}><MapPin size={20} color="#16a34a" /></View>
                         <View style={{ flex: 1 }}>
-                            <Text style={styles.infoLabel}>Location</Text>
-                            <Text style={styles.infoValue} numberOfLines={1}>{job.location || 'Location shared'}</Text>
+                            <Text style={styles.infoLabel}>{t('jobPopup.location')}</Text>
+                            <Text style={styles.infoValue} numberOfLines={1}>{job.location || t('jobPopup.locationShared')}</Text>
                         </View>
                     </View>
                 </View>
 
                 <View style={styles.footer}>
-                    <SwipeButton onToggle={onAccept} />
+                    <SwipeButton onToggle={onAccept} t={t} />
                     <View style={styles.timerContainer}>
-                        <CountdownTimer seconds={30} onExpire={onReject} />
+                        <CountdownTimer seconds={30} onExpire={onReject} t={t} />
                     </View>
                 </View>
             </View>

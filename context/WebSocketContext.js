@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { Alert, AppState } from 'react-native';
 import api from '../utils/api';
+import { useAuth } from './AuthContext';
 
 // --- SAFE IMPORT FOR NOTIFEE ---
 let notifee;
@@ -23,6 +24,7 @@ export const useWebSocket = () => {
 
 export const WebSocketProvider = ({ children }) => {
     const router = useRouter();
+    const { user } = useAuth(); // Get user from AuthContext
 
     // --- STATE ---
     const [socket, setSocket] = useState(null);
@@ -38,14 +40,25 @@ export const WebSocketProvider = ({ children }) => {
     const appState = useRef(AppState.currentState);
     const soundRef = useRef(null);
 
-    // --- 1. INITIALIZATION ---
+    // --- 1. INITIALIZATION (Only when user is logged in) ---
     useEffect(() => {
+        // Only initialize if user is authenticated
+        if (!user) {
+            console.log("[WS] No user, skipping initialization.");
+            // Clean up if user logs out
+            disconnectWebSocket();
+            setJob(null);
+            setIsOnlineState(false);
+            return;
+        }
+
+        console.log("[WS] User authenticated, initializing...");
         fetchInitialStatus();
         if (notifee) requestNotificationPermission();
 
         const subscription = AppState.addEventListener('change', nextAppState => {
             if (appState.current.match(/inactive|background/) && nextAppState === 'active') {
-                if (intendedOnlineState.current) connectWebSocket();
+                if (intendedOnlineState.current && user) connectWebSocket();
             }
             appState.current = nextAppState;
         });
@@ -66,7 +79,7 @@ export const WebSocketProvider = ({ children }) => {
             disconnectWebSocket();
             stopRing();
         };
-    }, []);
+    }, [user]); // Re-run when user changes (login/logout)
 
     useEffect(() => { jobRef.current = job; }, [job]);
 

@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "Setu Partner",
-    "slug": "setu-partner",
+    "slug": "setu",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/logo.png",
@@ -60,7 +60,8 @@
           }
         }
       ],
-      "expo-secure-store"
+      "expo-secure-store",
+      "expo-localization"
     ],
     "experiments": {
       "typedRoutes": true,
@@ -69,9 +70,9 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "a64d6f7c-67df-462c-bd7b-4ef540f445f2"
+        "projectId": "0c27dd28-94ee-4f6e-99a0-6ca5ab7c13ca"
       }
     },
-    "owner": "mannavlakha"
+    "owner": "mannnavlakha"
   }
 }

@@ -3,15 +3,17 @@ import * as Location from 'expo-location';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ArrowLeft, ArrowRight, Camera, CheckCircle, MapPin } from 'lucide-react-native';
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, Alert, Image, KeyboardAvoidingView, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useAuth } from '../context/AuthContext'; // Import Auth Context
+import { useAuth } from '../context/AuthContext';
 import api from '../utils/api';
 
 export default function MechanicForm() {
     const router = useRouter();
     const params = useLocalSearchParams();
-    const { refreshProfile } = useAuth(); // Get the refresh function
+    const { t } = useTranslation();
+    const { refreshProfile } = useAuth();
 
     // State
     const [currentStep, setCurrentStep] = useState(1);
@@ -40,7 +42,7 @@ export default function MechanicForm() {
     const openCamera = async () => {
         const { status } = await ImagePicker.requestCameraPermissionsAsync();
         if (status !== 'granted') {
-            Alert.alert('Permission Denied', 'We need camera access to take your photo.');
+            Alert.alert(t('form.permissionDenied'), t('form.cameraPermission'));
             return;
         }
 
@@ -62,7 +64,7 @@ export default function MechanicForm() {
         setLocationLoading(true);
         let { status } = await Location.requestForegroundPermissionsAsync();
         if (status !== 'granted') {
-            Alert.alert('Permission Denied', 'Allow location access to detect your shop address.');
+            Alert.alert(t('form.permissionDenied'), t('form.locationPermission'));
             setLocationLoading(false);
             return;
         }
@@ -86,7 +88,7 @@ export default function MechanicForm() {
                 handleChange('shop_address', fullAddress.replace(/^, /, '').replace(/, ,/g, ','));
             }
         } catch (error) {
-            Alert.alert("Error", "Could not fetch location.");
+            Alert.alert(t('form.error'), t('form.locationError'));
         } finally {
             setLocationLoading(false);
         }
@@ -136,7 +138,7 @@ export default function MechanicForm() {
             // This pulls the new data (is_verified status) from the server
             await refreshProfile();
 
-            Alert.alert("Success", "Profile submitted successfully!");
+            Alert.alert(t('form.success'), t('form.profileSubmitted'));
 
             // 3. Navigate to Unverified Page
             // If the user IS verified, your _layout.tsx will automatically redirect them to Dashboard.
@@ -154,7 +156,7 @@ export default function MechanicForm() {
                 if (keys.length > 0) errorMsg = `${keys[0]}: ${err.response.data[keys[0]]}`;
             }
 
-            Alert.alert("Error", errorMsg);
+            Alert.alert(t('form.error'), errorMsg);
         } finally {
             setLoading(false);
         }
@@ -175,7 +177,7 @@ export default function MechanicForm() {
 
     const nextStep = () => {
         if (validateStep()) setCurrentStep(c => c + 1);
-        else Alert.alert("Missing Fields", "Please fill all required fields.");
+        else Alert.alert(t('form.missingFields'), t('form.fillAllFields'));
     };
 
     const prevStep = () => setCurrentStep(c => c - 1);
@@ -195,23 +197,23 @@ export default function MechanicForm() {
                                 ) : (
                                     <View className="items-center">
                                         <Camera size={28} color="#64748b" />
-                                        <Text className="text-xs text-slate-500 mt-2 font-medium">Take Photo</Text>
+                                        <Text className="text-xs text-slate-500 mt-2 font-medium">{t('form.takePhoto')}</Text>
                                     </View>
                                 )}
                             </TouchableOpacity>
-                            <Text className="text-slate-400 text-xs mt-2">Tap to capture photo</Text>
+                            <Text className="text-slate-400 text-xs mt-2">{t('form.tapToCapture')}</Text>
                         </View>
 
                         <View>
-                            <Text className="text-slate-600 mb-1 font-medium">First Name</Text>
+                            <Text className="text-slate-600 mb-1 font-medium">{t('form.firstName')}</Text>
                             <TextInput value={formData.first_name} onChangeText={t => handleChange('first_name', t)} className="bg-white border border-slate-300 p-3 rounded-xl" placeholder="John" />
                         </View>
                         <View>
-                            <Text className="text-slate-600 mb-1 font-medium">Last Name</Text>
+                            <Text className="text-slate-600 mb-1 font-medium">{t('form.lastName')}</Text>
                             <TextInput value={formData.last_name} onChangeText={t => handleChange('last_name', t)} className="bg-white border border-slate-300 p-3 rounded-xl" placeholder="Doe" />
                         </View>
                         <View>
-                            <Text className="text-slate-600 mb-1 font-medium">Aadhar Number</Text>
+                            <Text className="text-slate-600 mb-1 font-medium">{t('form.aadharNumber')}</Text>
                             <TextInput value={formData.adhar_card} onChangeText={t => handleChange('adhar_card', t)} keyboardType="numeric" maxLength={12} className="bg-white border border-slate-300 p-3 rounded-xl" placeholder="1234 5678 9012" />
                         </View>
                     </View>
@@ -221,19 +223,19 @@ export default function MechanicForm() {
                 return (
                     <View className="space-y-4">
                         <View>
-                            <Text className="text-slate-600 mb-1 font-medium">Shop Name</Text>
+                            <Text className="text-slate-600 mb-1 font-medium">{t('form.shopName')}</Text>
                             <TextInput value={formData.shop_name} onChangeText={t => handleChange('shop_name', t)} className="bg-white border border-slate-300 p-3 rounded-xl" placeholder="My Auto Garage" />
                         </View>
 
                         <View>
-                            <Text className="text-slate-600 mb-1 font-medium">Shop Location</Text>
+                            <Text className="text-slate-600 mb-1 font-medium">{t('form.shopLocation')}</Text>
                             <TouchableOpacity
                                 onPress={getCurrentLocation}
                                 className="flex-row items-center bg-blue-50 border border-blue-200 p-3 rounded-xl mb-2"
                             >
                                 {locationLoading ? <ActivityIndicator size="small" color="#2563eb" /> : <MapPin size={20} color="#2563eb" />}
                                 <Text className="text-blue-600 font-semibold ml-2">
-                                    {formData.shop_latitude ? "Update Location" : "Detect My Location"}
+                                    {formData.shop_latitude ? t('form.updateLocation') : t('form.detectLocation')}
                                 </Text>
                             </TouchableOpacity>
 
@@ -243,7 +245,7 @@ export default function MechanicForm() {
                                 multiline
                                 numberOfLines={3}
                                 className="bg-white border border-slate-300 p-3 rounded-xl h-24"
-                                placeholder="Full Address"
+                                placeholder={t('form.fullAddress')}
                                 style={{ textAlignVertical: 'top' }}
                             />
                         </View>
@@ -254,11 +256,11 @@ export default function MechanicForm() {
                 return (
                     <View className="space-y-4">
                         <View>
-                            <Text className="text-slate-600 mb-1 font-medium">Email</Text>
+                            <Text className="text-slate-600 mb-1 font-medium">{t('form.email')}</Text>
                             <TextInput value={formData.email} onChangeText={t => handleChange('email', t)} keyboardType="email-address" className="bg-white border border-slate-300 p-3 rounded-xl" placeholder="john@example.com" />
                         </View>
                         <View>
-                            <Text className="text-slate-600 mb-1 font-medium">Mobile Number</Text>
+                            <Text className="text-slate-600 mb-1 font-medium">{t('form.mobileNumber')}</Text>
                             <View className="flex-row items-center border border-slate-300 rounded-xl bg-white overflow-hidden">
                                 <View className="bg-slate-100 px-3 py-4 border-r border-slate-300">
                                     <Text className="text-slate-600 font-bold">+91</Text>
@@ -272,7 +274,7 @@ export default function MechanicForm() {
                                     placeholder="9876543210"
                                 />
                             </View>
-                            <Text className="text-xs text-slate-400 mt-1">Enter 10 digit number without country code</Text>
+                            <Text className="text-xs text-slate-400 mt-1">{t('form.mobileHint')}</Text>
                         </View>
                     </View>
                 );
@@ -280,22 +282,22 @@ export default function MechanicForm() {
             case 4: // Review
                 return (
                     <View className="bg-white p-4 rounded-xl border border-slate-200 space-y-4">
-                        <Text className="text-lg font-bold text-slate-800 border-b border-slate-100 pb-2">Review Details</Text>
+                        <Text className="text-lg font-bold text-slate-800 border-b border-slate-100 pb-2">{t('form.reviewDetails')}</Text>
 
                         <View className="flex-row justify-between">
-                            <Text className="text-slate-500">Name</Text>
+                            <Text className="text-slate-500">{t('form.name')}</Text>
                             <Text className="font-semibold">{formData.first_name} {formData.last_name}</Text>
                         </View>
                         <View className="flex-row justify-between">
-                            <Text className="text-slate-500">Shop</Text>
+                            <Text className="text-slate-500">{t('form.shop')}</Text>
                             <Text className="font-semibold">{formData.shop_name}</Text>
                         </View>
                         <View className="flex-row justify-between">
-                            <Text className="text-slate-500">Phone</Text>
+                            <Text className="text-slate-500">{t('form.phone')}</Text>
                             <Text className="font-semibold">+91 {formData.mobile_number}</Text>
                         </View>
                         <View>
-                            <Text className="text-slate-500 mb-1">Address</Text>
+                            <Text className="text-slate-500 mb-1">{t('form.address')}</Text>
                             <Text className="font-medium text-slate-800">{formData.shop_address}</Text>
                         </View>
                     </View>
@@ -308,8 +310,8 @@ export default function MechanicForm() {
             <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} className="flex-1">
                 <View className="p-6">
                     <View className="mb-6">
-                        <Text className="text-2xl font-bold text-slate-800">Complete Profile</Text>
-                        <Text className="text-slate-500">Step {currentStep} of {totalSteps}</Text>
+                        <Text className="text-2xl font-bold text-slate-800">{t('form.title')}</Text>
+                        <Text className="text-slate-500">{t('form.step')} {currentStep} {t('form.of')} {totalSteps}</Text>
                         <View className="h-2 bg-slate-200 rounded-full mt-3 overflow-hidden">
                             <View
                                 className="h-full bg-blue-600 rounded-full"
@@ -330,19 +332,19 @@ export default function MechanicForm() {
                         className={`flex-row items-center px-4 py-3 rounded-xl ${currentStep === 1 ? 'opacity-0' : 'bg-slate-100'}`}
                     >
                         <ArrowLeft size={20} color="#334155" />
-                        <Text className="ml-2 font-semibold text-slate-700">Back</Text>
+                        <Text className="ml-2 font-semibold text-slate-700">{t('form.back')}</Text>
                     </TouchableOpacity>
 
                     {currentStep < totalSteps ? (
                         <TouchableOpacity onPress={nextStep} className="flex-row items-center bg-slate-900 px-6 py-3 rounded-xl">
-                            <Text className="mr-2 font-bold text-white">Next</Text>
+                            <Text className="mr-2 font-bold text-white">{t('form.next')}</Text>
                             <ArrowRight size={20} color="white" />
                         </TouchableOpacity>
                     ) : (
                         <TouchableOpacity onPress={handleSubmit} disabled={loading} className="flex-row items-center bg-blue-600 px-6 py-3 rounded-xl">
                             {loading ? <ActivityIndicator color="white" /> : (
                                 <>
-                                    <Text className="mr-2 font-bold text-white">Submit</Text>
+                                    <Text className="mr-2 font-bold text-white">{t('form.submit')}</Text>
                                     <CheckCircle size={20} color="white" />
                                 </>
                             )}

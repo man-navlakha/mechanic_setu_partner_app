@@ -4,6 +4,7 @@ import {
     CheckCircle, ChevronRight,
     DollarSign,
     FileText,
+    Globe,
     History,
     LogOut,
     Mail,
@@ -12,19 +13,23 @@ import {
     User
 } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, Alert, Image, Linking, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import LanguageModal from '../components/LanguageModal';
 import { useAuth } from '../context/AuthContext';
 import api from '../utils/api';
 
 export default function ProfileScreen() {
     const router = useRouter();
     const { logout } = useAuth();
+    const { t } = useTranslation();
 
     const [activeSection, setActiveSection] = useState('home');
     const [profileData, setProfileData] = useState(null);
     const [historyData, setHistoryData] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [showLanguageModal, setShowLanguageModal] = useState(false);
 
     // --- 1. FETCH DATA ---
     useEffect(() => {
@@ -48,14 +53,14 @@ export default function ProfileScreen() {
 
     // --- 2. ACTIONS ---
     const handleLogout = async () => {
-        Alert.alert("Log Out", "Are you sure you want to log out?", [
-            { text: "Cancel", style: "cancel" },
+        Alert.alert(t('profile.logout'), t('profile.logoutConfirm'), [
+            { text: t('profile.cancel'), style: "cancel" },
             {
-                text: "Log Out",
+                text: t('profile.logout'),
                 style: "destructive",
                 onPress: async () => {
                     await logout();
-                    router.replace('/');
+                    router.replace('/login');
                 }
             }
         ]);
@@ -133,7 +138,7 @@ export default function ProfileScreen() {
 
                 <View className={`mt-4 px-4 py-1.5 rounded-full ${profileData?.is_verified ? 'bg-green-100' : 'bg-yellow-100'}`}>
                     <Text className={`text-xs font-bold ${profileData?.is_verified ? 'text-green-700' : 'text-yellow-700'}`}>
-                        {profileData?.is_verified ? 'VERIFIED PARTNER' : 'VERIFICATION PENDING'}
+                        {profileData?.is_verified ? t('profile.verified') : t('profile.pending')}
                     </Text>
                 </View>
             </View>
@@ -141,29 +146,29 @@ export default function ProfileScreen() {
             <Text className="text-slate-900 font-bold text-lg mb-3 px-1">Manage Account</Text>
 
             <MenuCard
-                title="Personal Info"
-                subtitle="Contact details & documents"
+                title={t('profile.personalInfo')}
+                subtitle={t('profile.personalInfoSubtitle')}
                 icon={<User size={24} color="#2563eb" />}
                 color="bg-blue-50"
                 onClick={() => setActiveSection('personalInfo')}
             />
             <MenuCard
-                title="Shop Details"
-                subtitle="Location & Shop Name"
+                title={t('profile.shopDetails')}
+                subtitle={t('profile.shopDetailsSubtitle')}
                 icon={<Store size={24} color="#16a34a" />}
                 color="bg-green-50"
                 onClick={() => setActiveSection('shopInfo')}
             />
             <MenuCard
-                title="Earnings"
-                subtitle="View payments & stats"
+                title={t('profile.earnings')}
+                subtitle={t('profile.earningsSubtitle')}
                 icon={<DollarSign size={24} color="#ca8a04" />}
                 color="bg-yellow-50"
                 onClick={() => setActiveSection('earnings')}
             />
             <MenuCard
-                title="Job History"
-                subtitle="Review completed jobs"
+                title={t('profile.jobHistory')}
+                subtitle={t('profile.jobHistorySubtitle')}
                 icon={<History size={24} color="#9333ea" />}
                 color="bg-purple-50"
                 onClick={() => setActiveSection('jobHistory')}
@@ -174,7 +179,7 @@ export default function ProfileScreen() {
                 className="mt-6 bg-red-50 p-4 rounded-2xl flex-row items-center justify-center border border-red-100 active:bg-red-100"
             >
                 <LogOut size={20} color="#dc2626" className="mr-2" />
-                <Text className="text-red-600 font-bold text-base">Log Out</Text>
+                <Text className="text-red-600 font-bold text-base">{t('profile.logout')}</Text>
             </TouchableOpacity>
         </View>
     );
@@ -208,8 +213,8 @@ export default function ProfileScreen() {
 
     const ShopInfo = () => (
         <View className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
-            <InfoField label="Shop Name" value={profileData.shop_name} />
-            <InfoField label="Shop Address" value={profileData.shop_address} />
+            <InfoField label={t('profile.shopName')} value={profileData.shop_name} />
+            <InfoField label={t('profile.shopAddress')} value={profileData.shop_address} />
 
             <View className="flex-row gap-4 mt-2">
                 <View className="flex-1">
@@ -235,19 +240,19 @@ export default function ProfileScreen() {
                     <View className="w-[48%] bg-green-50 p-5 rounded-2xl border border-green-100 mb-4 items-center">
                         <DollarSign size={28} color="#16a34a" className="mb-2" />
                         <Text className="text-2xl font-black text-green-800">₹{stats?.total_earnings || 0}</Text>
-                        <Text className="text-xs text-green-600 font-bold uppercase mt-1">Total Earned</Text>
+                        <Text className="text-xs text-green-600 font-bold uppercase mt-1">{t('profile.totalEarned')}</Text>
                     </View>
 
                     <View className="w-[48%] bg-purple-50 p-5 rounded-2xl border border-purple-100 mb-4 items-center">
                         <History size={28} color="#9333ea" className="mb-2" />
                         <Text className="text-2xl font-black text-purple-800">{stats?.total_jobs || 0}</Text>
-                        <Text className="text-xs text-purple-600 font-bold uppercase mt-1">Total Jobs</Text>
+                        <Text className="text-xs text-purple-600 font-bold uppercase mt-1">{t('profile.totalJobs')}</Text>
                     </View>
 
                     <View className="w-full bg-blue-50 p-5 rounded-2xl border border-blue-100 mb-4 flex-row items-center justify-between">
                         <View>
                             <Text className="text-3xl font-black text-blue-800">{stats?.jobs_this_month || 0}</Text>
-                            <Text className="text-xs text-blue-600 font-bold uppercase mt-1">Jobs This Month</Text>
+                            <Text className="text-xs text-blue-600 font-bold uppercase mt-1">{t('profile.jobsMonth')}</Text>
                         </View>
                         <View className="bg-blue-100 p-3 rounded-full">
                             <History size={24} color="#2563eb" />
@@ -264,7 +269,7 @@ export default function ProfileScreen() {
             <View>
                 {jobs.length === 0 ? (
                     <View className="items-center py-10">
-                        <Text className="text-slate-400 font-medium">No job history found.</Text>
+                        <Text className="text-slate-400 font-medium">{t('profile.noHistory')}</Text>
                     </View>
                 ) : (
                     jobs.map((job, index) => (
@@ -301,12 +306,21 @@ export default function ProfileScreen() {
                 <TouchableOpacity onPress={handleGoBack} className="p-2 -ml-2 rounded-full active:bg-slate-100">
                     <ArrowLeft size={24} color="#1e293b" />
                 </TouchableOpacity>
-                <Text className="text-xl font-bold text-slate-800 ml-2">
-                    {activeSection === 'home' ? 'My Profile' :
-                        activeSection === 'personalInfo' ? 'Personal Info' :
-                            activeSection === 'shopInfo' ? 'Shop Details' :
-                                activeSection === 'earnings' ? 'My Earnings' : 'Job History'}
+                <Text className="text-xl font-bold text-slate-800 ml-2 flex-1">
+                    {activeSection === 'home' ? t('profile.title') :
+                        activeSection === 'personalInfo' ? t('profile.personalInfo') :
+                            activeSection === 'shopInfo' ? t('profile.shopDetails') :
+                                activeSection === 'earnings' ? t('profile.earnings') : t('profile.jobHistory')}
                 </Text>
+
+                {activeSection === 'home' && (
+                    <TouchableOpacity
+                        onPress={() => setShowLanguageModal(true)}
+                        className="p-2 bg-slate-100 rounded-full"
+                    >
+                        <Globe size={20} color="#475569" />
+                    </TouchableOpacity>
+                )}
             </View>
 
             {/* Content Area */}
@@ -318,6 +332,11 @@ export default function ProfileScreen() {
                 {activeSection === 'jobHistory' && <JobHistoryList />}
                 <View className="h-10" />
             </ScrollView>
+
+            <LanguageModal
+                visible={showLanguageModal}
+                onClose={() => setShowLanguageModal(false)}
+            />
         </SafeAreaView>
     );
 }

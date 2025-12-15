@@ -19,6 +19,7 @@ api.interceptors.request.use(
         try {
             // Read the saved cookie from phone storage
             const cookieString = await SecureStore.getItemAsync('session_cookie');
+            console.log("[API] Interceptor Cookie:", cookieString ? "Found (" + cookieString.substring(0, 10) + "...)" : "Missing");
 
             if (cookieString) {
                 config.headers.Cookie = cookieString;
@@ -40,9 +41,17 @@ api.interceptors.request.use(
 // --- 2. RESPONSE INTERCEPTOR ---
 // Handles expired sessions (401 Unauthorized)
 api.interceptors.response.use(
-    (response) => response,
+    (response) => {
+        // console.log(`[API] ${response.status} ${response.config.url}`);
+        return response;
+    },
     async (error) => {
         const originalRequest = error.config;
+        if (error.response) {
+            console.log(`[API] ERROR ${error.response.status} ${originalRequest?.url}`);
+        } else {
+            console.log(`[API] ERROR (Network/Other) ${originalRequest?.url}:`, error.message);
+        }
 
         // If we get a 401 error (Unauthorized) and haven't retried yet
         if (error.response?.status === 401 && !originalRequest._retry) {
