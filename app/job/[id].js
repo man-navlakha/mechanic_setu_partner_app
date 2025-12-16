@@ -10,6 +10,7 @@ import {
     Navigation,
     Phone,
     Shield,
+    Wrench,
     XCircle
 } from 'lucide-react-native';
 import { useEffect, useRef, useState } from 'react';
@@ -31,6 +32,7 @@ import {
 } from 'react-native';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import DraggableBottomSheet from '../../components/DraggableBottomSheet';
 import { useWebSocket } from '../../context/WebSocketContext';
 
 // --- HELPER: Calculate Distance ---
@@ -187,8 +189,8 @@ export default function JobDetailsPage() {
                 </View>
             </SafeAreaView>
 
-            {/* 2. MAP SECTION */}
-            <View className="h-[55%] w-full relative z-0">
+            {/* 2. MAP SECTION - Full Screen */}
+            <View className="flex-1 w-full relative">
                 <MapView
                     ref={mapRef}
                     provider={PROVIDER_GOOGLE}
@@ -230,7 +232,7 @@ export default function JobDetailsPage() {
                 </MapView>
 
                 {/* Floating Map Actions */}
-                <View className="absolute bottom-16 right-5 space-y-3 z-10">
+                <View className="absolute bottom-32 right-5 space-y-3 z-10">
                     <TouchableOpacity
                         onPress={handleNavigate}
                         className="bg-blue-600 p-4 rounded-full shadow-blue-500/30 shadow-xl flex-row items-center border-2 border-white/20"
@@ -240,127 +242,150 @@ export default function JobDetailsPage() {
                 </View>
 
                 {/* Gradient Map Fuse */}
-                <View className="absolute bottom-0 w-full h-24 bg-gradient-to-t from-slate-50 to-transparent pointer-events-none" />
+                <View className="absolute bottom-0 w-full h-32 bg-gradient-to-t from-slate-900/40 to-transparent pointer-events-none" />
             </View>
 
-            {/* 3. INFO SHEET */}
-            <View className="flex-1 -mt-12 bg-white rounded-t-[36px] shadow-[0px_-5px_20px_rgba(0,0,0,0.05)] overflow-hidden">
-                <ScrollView
-                    className="flex-1 px-6 pt-2"
-                    showsVerticalScrollIndicator={false}
-                    contentContainerStyle={{ paddingBottom: 40 }}
-                >
-                    {/* Handle Indicator */}
-                    <View className="w-12 h-1.5 bg-slate-200 rounded-full self-center mt-3 mb-6" />
+            {/* 3. INFO SHEET (Draggable) */}
+            <DraggableBottomSheet snapPoints={['40%', '60%', '90%']} initialIndex={0}>
 
-                    {/* Customer Profile Header */}
-                    <View className="flex-row items-center justify-between mb-8">
-                        <View className="flex-row items-center flex-1 mr-4">
-                            <View className="relative">
-                                <Image
-                                    source={{ uri: job.user_profile_pic || 'https://via.placeholder.com/100' }}
-                                    className="w-16 h-16 rounded-2xl bg-slate-100 border-2 border-white shadow-sm"
-                                />
-                                <View className="absolute -bottom-1 -right-1 bg-green-500 w-5 h-5 rounded-full border-2 border-white items-center justify-center">
-                                    <View className="w-2 h-2 bg-white rounded-full" />
-                                </View>
-                            </View>
-                            <View className="ml-4 flex-1">
-                                <Text className="text-xl font-bold text-slate-900" numberOfLines={1}>
-                                    {job.first_name} {job.last_name}
-                                </Text>
-                                <View className="flex-row items-center mt-0.5">
-                                    <Shield size={12} color="#64748b" />
-                                    <Text className="text-slate-500 text-xs ml-1 font-medium">{t('job.verifiedCustomer')}</Text>
-                                </View>
+                {/* Customer Profile Header */}
+                <View className="flex-row items-center justify-between mb-6 border-b border-slate-100 pb-4">
+                    <View className="flex-row items-center flex-1 mr-4">
+                        <View className="relative">
+                            <Image
+                                source={{ uri: job.user_profile_pic || 'https://via.placeholder.com/100' }}
+                                className="w-16 h-16 rounded-2xl bg-slate-100 border-2 border-white shadow-sm"
+                            />
+                            <View className="absolute -bottom-1 -right-1 bg-green-500 w-5 h-5 rounded-full border-2 border-white items-center justify-center">
+                                <View className="w-2 h-2 bg-white rounded-full" />
                             </View>
                         </View>
-                        <TouchableOpacity
-                            onPress={handleCall}
-                            className="bg-emerald-50 p-3.5 rounded-2xl border border-emerald-100 active:scale-95 transition-transform"
-                        >
-                            <Phone size={24} color="#10b981" />
-                        </TouchableOpacity>
-                    </View>
-
-                    {/* Job Details Grid */}
-                    <Text className="text-slate-900 font-bold text-lg mb-4">{t('job.serviceDetails')}</Text>
-
-                    <View className="space-y-4 mb-8">
-                        {/* Vehicle Card */}
-                        <View className="flex-row bg-slate-50 p-4 rounded-2xl border border-slate-100 items-center">
-                            <View className="bg-indigo-100 p-3 rounded-xl">
-                                <Car size={22} color="#4338ca" />
-                            </View>
-                            <View className="ml-4 flex-1">
-                                <Text className="text-xs text-slate-500 font-bold uppercase tracking-wider">{t('job.vehicle')}</Text>
-                                <Text className="text-base font-semibold text-slate-800 mt-0.5 max-w-[90%]">{job.vehical_type || t('job.unknownVehicle')}</Text>
-                            </View>
-                        </View>
-
-                        {/* Problem Card */}
-                        <View className="flex-row bg-orange-50 p-4 rounded-2xl border border-orange-100 items-center">
-                            <View className="bg-orange-100 p-3 rounded-xl">
-                                <AlertTriangle size={22} color="#ea580c" />
-                            </View>
-                            <View className="ml-4 flex-1">
-                                <Text className="text-xs text-orange-600/70 font-bold uppercase tracking-wider">{t('job.reportedIssue')}</Text>
-                                <Text className="text-base font-semibold text-slate-800 mt-0.5 leading-5">{job.problem}</Text>
-                            </View>
-                        </View>
-
-                        {/* Distance/Location Card */}
-                        <View className="flex-row justify-between space-x-4">
-                            <View className="flex-1 bg-slate-50 p-4 rounded-2xl border border-slate-100 flex-row items-center">
-                                <MapPin size={18} color="#64748b" />
-                                <View className="ml-3">
-                                    <Text className="text-xs text-slate-400 font-bold uppercase">{t('job.distance')}</Text>
-                                    <Text className="text-sm font-bold text-slate-800">
-                                        {distance ? `${distance.toFixed(1)} km` : "..."}
-                                    </Text>
-                                </View>
-                            </View>
-                            <View className="flex-1 bg-slate-50 p-4 rounded-2xl border border-slate-100 flex-row items-center">
-                                <Clock size={18} color="#64748b" />
-                                <View className="ml-3">
-                                    <Text className="text-xs text-slate-400 font-bold uppercase">{t('job.eta')}</Text>
-                                    <Text className="text-sm font-bold text-slate-800">
-                                        {distance ? `${Math.ceil(distance * 3)} mins` : "..."}
-                                    </Text>
-                                </View>
-                            </View>
-                        </View>
-                    </View>
-
-                    {/* Action Button */}
-                    <TouchableOpacity
-                        onPress={onCompleteBtnPress}
-                        disabled={loading}
-                        className={`w-full py-4 rounded-2xl flex-row justify-center items-center shadow-xl shadow-indigo-500/20 active:scale-[0.98] transition-all transform ${isNear ? 'bg-indigo-600' : 'bg-slate-800'}`}
-                    >
-                        {loading ? (
-                            <ActivityIndicator color="white" />
-                        ) : (
-                            <>
-                                <CheckCircle size={22} color="white" className="mr-2.5" strokeWidth={2.5} />
-                                <Text className="text-white font-bold text-lg tracking-wide">
-                                    {t('job.completeJob')}
-                                </Text>
-                            </>
-                        )}
-                    </TouchableOpacity>
-
-                    {!isNear && (
-                        <View className="flex-row items-center justify-center mt-4 space-x-2 opacity-70">
-                            <MapPin size={14} color="#64748b" />
-                            <Text className="text-xs text-slate-500 font-medium">
-                                You are {distance ? distance.toFixed(1) : '?'}km away from location
+                        <View className="ml-4 flex-1">
+                            <Text className="text-xl font-bold text-slate-900" numberOfLines={1}>
+                                {job.first_name} {job.last_name}
                             </Text>
+                            <View className="flex-row items-center mt-0.5">
+                                <Shield size={12} color="#64748b" />
+                                <Text className="text-slate-500 text-xs ml-1 font-medium">{t('job.verifiedCustomer')}</Text>
+                            </View>
                         </View>
-                    )}
+                    </View>
+                    <TouchableOpacity
+                        onPress={handleCall}
+                        className="bg-emerald-50 p-3.5 rounded-2xl border border-emerald-100 active:scale-95 transition-transform"
+                    >
+                        <Phone size={24} color="#10b981" />
+                    </TouchableOpacity>
+                </View>
 
-                </ScrollView>
-            </View>
+                {/* Job Details Grid */}
+                <Text className="text-slate-900 font-bold text-lg mb-4">{t('job.serviceDetails')}</Text>
+
+                <View className="space-y-4 mb-8">
+                    {/* Vehicle Card */}
+                    <View className="flex-row bg-slate-50 p-4 rounded-2xl border border-slate-100 items-center">
+                        <View className="bg-indigo-100 p-3 rounded-xl">
+                            <Car size={22} color="#4338ca" />
+                        </View>
+                        <View className="ml-4 flex-1">
+                            <Text className="text-xs text-slate-500 font-bold uppercase tracking-wider">{t('job.vehicle')}</Text>
+                            <Text className="text-base font-semibold text-slate-800 mt-0.5 max-w-[90%]">{job.vehical_type || t('job.unknownVehicle')}</Text>
+                        </View>
+                    </View>
+
+                    {/* Problem Card */}
+                    <View className="flex-row bg-orange-50 p-4 rounded-2xl border border-orange-100 items-center">
+                        <View className="bg-orange-100 p-3 rounded-xl">
+                            <AlertTriangle size={22} color="#ea580c" />
+                        </View>
+                        <View className="ml-4 flex-1">
+                            <Text className="text-xs text-orange-600/70 font-bold uppercase tracking-wider">{t('job.reportedIssue')}</Text>
+                            <Text className="text-base font-semibold text-slate-800 mt-0.5 leading-5">{job.problem}</Text>
+                        </View>
+                    </View>
+
+                    {/* Distance/Location Card */}
+                    <View className="flex-row justify-between space-x-4">
+                        <View className="flex-1 bg-slate-50 p-4 rounded-2xl border border-slate-100 flex-row items-center">
+                            <MapPin size={18} color="#64748b" />
+                            <View className="ml-3">
+                                <Text className="text-xs text-slate-400 font-bold uppercase">{t('job.distance')}</Text>
+                                <Text className="text-sm font-bold text-slate-800">
+                                    {distance ? `${distance.toFixed(1)} km` : "..."}
+                                </Text>
+                            </View>
+                        </View>
+                        <View className="flex-1 bg-slate-50 p-4 rounded-2xl border border-slate-100 flex-row items-center">
+                            <Clock size={18} color="#64748b" />
+                            <View className="ml-3">
+                                <Text className="text-xs text-slate-400 font-bold uppercase">{t('job.eta')}</Text>
+                                <Text className="text-sm font-bold text-slate-800">
+                                    {distance ? `${Math.ceil(distance * 3)} mins` : "..."}
+                                </Text>
+                            </View>
+                        </View>
+                    </View>
+                </View>
+
+                {/* Action Button */}
+                <TouchableOpacity
+                    onPress={onCompleteBtnPress}
+                    disabled={loading}
+                    className={`w-full py-4 rounded-2xl flex-row justify-center items-center shadow-xl shadow-indigo-500/20 active:scale-[0.98] transition-all transform ${isNear ? 'bg-indigo-600' : 'bg-slate-800'}`}
+                >
+                    {loading ? (
+                        <ActivityIndicator color="white" />
+                    ) : (
+                        <>
+                            <CheckCircle size={22} color="white" className="mr-2.5" strokeWidth={2.5} />
+                            <Text className="text-white font-bold text-lg tracking-wide">
+                                {t('job.completeJob')}
+                            </Text>
+                        </>
+                    )}
+                </TouchableOpacity>
+
+                {!isNear && (
+                    <View className="flex-row items-center justify-center mt-4 mb-2 space-x-2 opacity-70">
+                        <MapPin size={14} color="#64748b" />
+                        <Text className="text-xs text-slate-500 font-medium">
+                            You are {distance ? distance.toFixed(1) : '?'}km away from location
+                        </Text>
+                    </View>
+                )}
+
+                {/* --- SAMPLE ADS SECTION --- */}
+                <View className="mt-8 pt-6 border-t border-slate-100">
+                    <Text className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3 ml-1">Sponsored</Text>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} className="gap-4 pr-4">
+                        {/* Ad 1 */}
+                        <TouchableOpacity className="bg-slate-50 border border-slate-200 rounded-2xl p-0 overflow-hidden w-64 shadow-sm">
+                            <View className="bg-yellow-400 h-24 items-center justify-center relative">
+                                <View className="absolute inset-0 bg-yellow-500/20" />
+                                <Car size={40} color="#713f12" />
+                            </View>
+                            <View className="p-4">
+                                <Text className="font-bold text-slate-800 text-base">Castrol Magnatec Oil</Text>
+                                <Text className="text-slate-500 text-xs mt-1">Get 20% off on your next purchase at nearby stores.</Text>
+                                <Text className="text-blue-600 text-xs font-bold mt-3">SHOP NOW →</Text>
+                            </View>
+                        </TouchableOpacity>
+
+                        {/* Ad 2 */}
+                        <TouchableOpacity className="bg-slate-50 border border-slate-200 rounded-2xl p-0 overflow-hidden w-64 shadow-sm">
+                            <View className="bg-blue-500 h-24 items-center justify-center">
+                                <Wrench size={40} color="white" />
+                            </View>
+                            <View className="p-4">
+                                <Text className="font-bold text-slate-800 text-base">Pro Mechanic Toolset</Text>
+                                <Text className="text-slate-500 text-xs mt-1">Complete kit for professional mechanics. EMI Available.</Text>
+                                <Text className="text-blue-600 text-xs font-bold mt-3">VIEW DETAILS →</Text>
+                            </View>
+                        </TouchableOpacity>
+                    </ScrollView>
+                </View>
+
+            </DraggableBottomSheet>
 
             {/* --- COMPLETE JOB MODAL --- */}
             <Modal

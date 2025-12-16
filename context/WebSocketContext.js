@@ -83,6 +83,22 @@ export const WebSocketProvider = ({ children }) => {
         };
     }, [user]); // Re-run when user changes (login/logout)
 
+    // --- CONNECTION MONITOR (Heartbeat) ---
+    useEffect(() => {
+        const checkConnection = setInterval(() => {
+            if (intendedOnlineState.current) {
+                const ws = socketRef.current;
+                // If socket doesn't exist or is not OPEN/CONNECTING, reconnect
+                if (!ws || (ws.readyState !== WebSocket.OPEN && ws.readyState !== WebSocket.CONNECTING)) {
+                    console.log("[WS] Monitor: Connection lost. Reconnecting...");
+                    connectWebSocket();
+                }
+            }
+        }, 2500); // Check every 2.5 seconds
+
+        return () => clearInterval(checkConnection);
+    }, []);
+
     useEffect(() => { jobRef.current = job; }, [job]);
 
     const requestNotificationPermission = async () => {
@@ -191,38 +207,45 @@ export const WebSocketProvider = ({ children }) => {
 
     // --- 3. SOUND CONTROL ---
     const startRing = async () => {
+        console.log("[Audio] startRing called");
         try {
             if (soundRef.current) {
-                // Already playing
+                console.log("[Audio] Sound already playing, skipping start.");
                 return;
             }
+            console.log("[Audio] Loading sound file...");
             // Ensure the sound file exists in assets/sounds/alert.mp3
             const { sound } = await Audio.Sound.createAsync(
                 require('../assets/sounds/alert.mp3'),
                 { isLooping: true }
             );
+            console.log("[Audio] Sound loaded. Playing...");
             soundRef.current = sound;
             await sound.playAsync();
+            console.log("[Audio] Sound is now playing.");
         } catch (error) {
-            console.log("[Audio] Start Error:", error.message);
+            console.error("[Audio] Start Error FULL:", error);
+            // Alert.alert("Sound Error", error.message); 
         }
     };
 
     const stopRing = async () => {
+        console.log("[Audio] stopRing called");
         try {
             if (soundRef.current) {
                 const status = await soundRef.current.getStatusAsync();
+                console.log("[Audio] Current sound status:", status);
                 if (status.isLoaded) {
                     await soundRef.current.stopAsync();
                     await soundRef.current.unloadAsync();
+                    console.log("[Audio] Sound stopped and unloaded.");
                 }
                 soundRef.current = null;
+            } else {
+                console.log("[Audio] No sound ref to stop.");
             }
-            // Only cancel if no more jobs? 
-            // For now, cancel all job alerts if we stop ring? No, notification might persist.
-            // But usually sound is tied to "unattended" request.
         } catch (error) {
-            console.log("[Audio] Stop Error:", error.message);
+            console.error("[Audio] Stop Error FULL:", error);
             // Force cleanup if error
             soundRef.current = null;
         }
@@ -231,26 +254,49 @@ export const WebSocketProvider = ({ children }) => {
     // --- 4. API & STATUS ---
     const fetchInitialStatus = async () => {
         try {
-            const res = await api.get("/jobs/GetBasicNeeds/");
-            const data = res.data.basic_needs || {};
-
-            const serverIsOnline = data.status === "ONLINE" && !!data.is_verified;
-            setIsOnlineState(serverIsOnline);
-            intendedOnlineState.current = serverIsOnline;
-
+            // 1. Check for Active/Pending Jobs FIRST
             const syncRes = await api.get("/jobs/SyncActiveJob/");
+            let hasActiveJob = false;
+
             if (syncRes.data && syncRes.data.id && syncRes.data.status) {
+                console.log("[WS] Found active job, restoring session...");
+                hasActiveJob = true;
                 if (syncRes.data.status === 'PENDING') {
                     setPendingJobs([syncRes.data]);
                 } else {
                     setJob(syncRes.data);
+                    // Ensure backend status matches active job state
+                    updateStatus("WORKING");
                 }
+                // If there's a job, we MUST be online
                 setIsOnlineState(true);
+                intendedOnlineState.current = true;
+                connectWebSocket();
             }
 
-            if (serverIsOnline) connectWebSocket();
+            // 2. If no active job, check if User was previously ONLINE
+            if (!hasActiveJob) {
+                const res = await api.get("/jobs/GetBasicNeeds/");
+                const data = res.data.basic_needs || {};
+
+                const serverIsOnline = data.status === "ONLINE";
+
+                if (serverIsOnline) {
+                    console.log("[WS] User status is ONLINE on server. Reconnecting...");
+                    setIsOnlineState(true);
+                    intendedOnlineState.current = true;
+                    connectWebSocket();
+                } else {
+                    console.log("[WS] User status is OFFLINE.");
+                    setIsOnlineState(false);
+                    intendedOnlineState.current = false;
+                }
+            }
+
         } catch (err) {
             console.log("[WS] Init Error:", err.message);
+            // Safety: Default failure to offline
+            setIsOnlineState(false);
         }
     };
 
@@ -449,7 +495,7 @@ export const WebSocketProvider = ({ children }) => {
                     job_id: jobRef.current?.id || null
                 }));
             }
-        }, 4000);
+        }, 2500);
     };
 
     const stopLocationTracking = () => {
