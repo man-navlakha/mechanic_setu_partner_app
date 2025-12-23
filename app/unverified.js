@@ -1,17 +1,23 @@
 
 import { useRouter } from 'expo-router';
-import { AlertCircle, BadgeCheck, Clock } from 'lucide-react-native';
+import { AlertCircle, BadgeCheck, Clock, Globe } from 'lucide-react-native';
+import { useColorScheme } from 'nativewind';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import LanguageModal from '../components/LanguageModal';
 import { useAuth } from '../context/AuthContext';
+
 
 export default function UnverifiedScreen() {
     const router = useRouter();
     const { t } = useTranslation();
     const { profile, refreshProfile, logout } = useAuth();
     const [checking, setChecking] = useState(false);
+    const [showLanguageModal, setShowLanguageModal] = useState(false);
+    const { colorScheme } = useColorScheme();
+    const isDark = colorScheme === 'dark';
 
     // Check status periodically (in case admin verifies them while they wait)
     useEffect(() => {
@@ -31,6 +37,8 @@ export default function UnverifiedScreen() {
 
         const isVerified = profile.is_verified;
         const hasSubmittedKyc = !!profile.KYC_document; // Convert to boolean
+
+
 
         // STATE 1: VERIFIED
         if (isVerified) {
@@ -56,7 +64,7 @@ export default function UnverifiedScreen() {
         // STATE 2: PENDING (Submitted but waiting)
         if (hasSubmittedKyc) {
             return (
-                <View className="items-center p-6 bg-white rounded-2xl shadow-sm w-full">
+                <View className="items-center p-6 bg-white rounded-2xl flex-col gap-2  shadow-sm w-full">
                     <Clock size={80} color="#ca8a04" />
                     <Text className="text-2xl font-bold text-yellow-600 mt-4 mb-2 text-center">
                         {t('unverified.pending')}
@@ -69,6 +77,10 @@ export default function UnverifiedScreen() {
                         className="bg-slate-100 border border-slate-300 w-full py-3 rounded-xl flex-row justify-center items-center"
                     >
                         {checking ? <ActivityIndicator color="#000" /> : <Text className="text-slate-700 font-bold">{t('unverified.checkStatus')}</Text>}
+                    </TouchableOpacity>
+
+                    <TouchableOpacity onPress={logout}>
+                        <Text className="text-red-600  text-lg">{t('unverified.logout')}</Text>
                     </TouchableOpacity>
                 </View>
             );
@@ -100,7 +112,17 @@ export default function UnverifiedScreen() {
 
     return (
         <SafeAreaView className="flex-1 bg-slate-50 justify-center items-center p-4">
+            <TouchableOpacity
+                onPress={() => setShowLanguageModal(true)}
+                className="bg-white absolute right-3 flex-row gap-3 justify-center items-center top-3 dark:bg-slate-800 p-2.5 rounded-full shadow-lg ml-2 border border-slate-100 dark:border-slate-700"
+            >
+                <Globe size={20} color={isDark ? "#94a3b8" : "#64748b"} /> <Text>Change Language</Text>
+            </TouchableOpacity>
             {renderContent()}
+            <LanguageModal
+                visible={showLanguageModal}
+                onClose={() => setShowLanguageModal(false)}
+            />
         </SafeAreaView>
     );
 }

@@ -1,4 +1,5 @@
 import { MaterialIcons } from '@expo/vector-icons';
+import { BottomSheetFlatList } from '@gorhom/bottom-sheet';
 import * as Haptics from 'expo-haptics';
 import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
@@ -20,7 +21,6 @@ import LanguageModal from '../components/LanguageModal';
 import { useAuth } from '../context/AuthContext';
 import { useWebSocket } from '../context/WebSocketContext';
 import api from '../utils/api';
-
 const TOGGLE_WIDTH = 140; // Increased width for text
 
 // Modern Light Map Style
@@ -362,10 +362,12 @@ export default function Dashboard() {
 
 
             {/* --- BOTTOM SHEET (Draggable) --- */}
-            <DraggableBottomSheet
-                initialIndex={0}
-                snapPoints={['25%', '45%', '85%']} className="mt-20 bottom-0"
-            >
+           <DraggableBottomSheet
+    initialIndex={0}
+    snapPoints={['25%', '45%', '85%']}
+    className="mt-20 bottom-0"
+    useScrollView={false} // <--- ADD THIS
+>
                 {/* Status Display Row */}
                 <View className="flex-row justify-between items-center mb-6">
                     <View>
@@ -438,41 +440,48 @@ export default function Dashboard() {
                         <Text className="text-slate-400 dark:text-slate-500 font-medium text-sm">{t('dashboard.noRecentJobs')}</Text>
                     </View>
                 ) : (
-                    pastJobs.slice(0, 10).map((job, index) => (
-                        <TouchableOpacity
-                            key={index}
-                            onPress={() => router.push(`/job/${job.id}`)}
-                            className="bg-slate-50 dark:bg-slate-800 p-4 rounded-xl border border-slate-100 dark:border-slate-700 mb-3 flex-row justify-between items-center"
-                        >
-                            <View className="flex-1 mr-3">
-                                <View className="flex-row items-center mb-1">
-                                    <Text className="font-bold text-slate-800 dark:text-slate-100 text-base flex-1" numberOfLines={1}>
-                                        {job.problem}
-                                    </Text>
-                                    <View className={`px-2 py-0.5 rounded ml-2 ${job.status === 'COMPLETED' ? 'bg-green-100 dark:bg-green-900/30' : 'bg-slate-200 dark:bg-slate-700'}`}>
-                                        <Text className={`text-[10px] font-bold ${job.status === 'COMPLETED' ? 'text-green-700 dark:text-green-400' : 'text-slate-500 dark:text-slate-400'}`}>
-                                            {job.status}
-                                        </Text>
-                                    </View>
-                                </View>
+                   <BottomSheetFlatList
+    data={pastJobs}
+    keyExtractor={(item) => item.id.toString()}
+    contentContainerStyle={{ paddingBottom: 20 }}
+    renderItem={({ item }) => (
+        <TouchableOpacity
+            // REMOVED key={index} -> Caused ReferenceError
+            onPress={() => router.push(`/job/${item.id}`)}
+            className="bg-slate-50 dark:bg-slate-800 p-4 rounded-xl border border-slate-100 dark:border-slate-700 mb-3 flex-row justify-between items-center"
+        >
+            <View className="flex-1 mr-3">
+                <View className="flex-row items-center mb-1">
+                    <Text className="font-bold text-slate-800 dark:text-slate-100 text-base flex-1" numberOfLines={1}>
+                        {/* ENSURE THIS SAYS 'item.problem', NOT 'job.problem' */}
+                        {item.problem}
+                    </Text>
+                    <View className={`px-2 py-0.5 rounded ml-2 ${item.status === 'COMPLETED' ? 'bg-green-100 dark:bg-green-900/30' : 'bg-slate-200 dark:bg-slate-700'}`}>
+                        <Text className={`text-[10px] font-bold ${item.status === 'COMPLETED' ? 'text-green-700 dark:text-green-400' : 'text-slate-500 dark:text-slate-400'}`}>
+                            {item.status}
+                        </Text>
+                    </View>
+                </View>
 
-                                <View className="flex-row items-center">
-                                    <MapPin size={10} color={isDark ? "#64748b" : "#94a3b8"} className="mr-1" />
-                                    <Text className="text-slate-500 dark:text-slate-400 text-xs flex-1" numberOfLines={1}>
-                                        {job.location || "Unknown Location"}
-                                    </Text>
-                                </View>
-                                <Text className="text-slate-400 dark:text-slate-500 text-[10px] mt-1">
-                                    {new Date(job.created_at).toDateString()}
-                                </Text>
-                            </View>
+                <View className="flex-row items-center">
+                    <MapPin size={10} color={isDark ? "#64748b" : "#94a3b8"} className="mr-1" />
+                    <Text className="text-slate-500 dark:text-slate-400 text-xs flex-1" numberOfLines={1}>
+                        {item.location || "Unknown Location"}
+                    </Text>
+                </View>
+                <Text className="text-slate-400 dark:text-slate-500 text-[10px] mt-1">
+                    {new Date(item.created_at).toDateString()}
+                </Text>
+            </View>
 
-                            <View className="items-end">
-                                <Text className="font-black text-slate-900 dark:text-slate-100 text-lg">₹{job.price || 0}</Text>
-                                <Text className="text-blue-500 dark:text-blue-400 text-[10px] font-bold">{t('dashboard.view').toUpperCase()}</Text>
-                            </View>
-                        </TouchableOpacity>
-                    ))
+            <View className="items-end">
+                <Text className="font-black text-slate-900 dark:text-slate-100 text-lg">₹{item.price || 0}</Text>
+                <Text className="text-blue-500 dark:text-blue-400 text-[10px] font-bold">{t('dashboard.view').toUpperCase()}</Text>
+            </View>
+        </TouchableOpacity>
+    )}
+/>
+
                 )}
             </DraggableBottomSheet>
 

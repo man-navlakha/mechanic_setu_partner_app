@@ -1,11 +1,10 @@
 import { Audio } from 'expo-av';
-import * as Location from 'expo-location';
 import { router } from 'expo-router';
 import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { Alert, AppState } from 'react-native';
 import api from '../utils/api';
 import { useAuth } from './AuthContext';
-
+import { useLocationContext } from './LocationContext';
 // --- SAFE IMPORT FOR NOTIFEE ---
 let notifee;
 try {
@@ -24,6 +23,7 @@ export const useWebSocket = () => {
 
 export const WebSocketProvider = ({ children }) => {
     const { user } = useAuth(); // Get user from AuthContext
+    const { latestCoordsRef, setIsHighAccuracy } = useLocationContext();
 
     // --- STATE ---
     const [socket, setSocket] = useState(null);
@@ -33,11 +33,7 @@ export const WebSocketProvider = ({ children }) => {
     const [job, setJob] = useState(null);
     const [pendingJobs, setPendingJobs] = useState([]);
     const jobRef = useRef(null);
-    const [mechanicCoords, setMechanicCoords] = useState(null);
     const intendedOnlineState = useRef(false);
-    const locationWatchId = useRef(null);
-    const latestCoordsRef = useRef(null);
-    const locationIntervalRef = useRef(null);
     const appState = useRef(AppState.currentState);
     const soundRef = useRef(null);
     const processedJobIds = useRef(new Set()); // Track accepted/pending IDs to avoid duplicate alerts
@@ -84,23 +80,27 @@ export const WebSocketProvider = ({ children }) => {
             stopRing();
         };
     }, [user]); // Re-run when user changes (login/logout)
-
+useEffect(() => {
+        if (job && job.status === 'WORKING') {
+            setIsHighAccuracy(true); // Switch to High Power/Precision
+        } else {
+            setIsHighAccuracy(false); // Switch to Battery Saving
+        }
+    }, [job?.status, setIsHighAccuracy]);
     // --- CONNECTION MONITOR (Heartbeat) ---
-    useEffect(() => {
-        const checkConnection = setInterval(() => {
-            if (intendedOnlineState.current) {
-                const ws = socketRef.current;
-                // If socket doesn't exist or is not OPEN/CONNECTING, reconnect
-                if (!ws || (ws.readyState !== WebSocket.OPEN && ws.readyState !== WebSocket.CONNECTING)) {
-                    console.log("[WS] Monitor: Connection lost. Reconnecting...");
-                    connectWebSocket();
-                }
+   useEffect(() => {
+        const interval = setInterval(() => {
+            // Read from the Ref directly. This DOES NOT trigger re-renders.
+            if (latestCoordsRef.current && socketRef.current?.readyState === WebSocket.OPEN) {
+                socketRef.current.send(JSON.stringify({
+                    type: 'location_update',
+                    ...latestCoordsRef.current,
+                    job_id: jobRef.current?.id || null
+                }));
             }
-        }, 2500); // Check every 2.5 seconds
-
-        return () => clearInterval(checkConnection);
+        }, 2500);
+        return () => clearInterval(interval);
     }, []);
-
     useEffect(() => { jobRef.current = job; }, [job]);
 
     const requestNotificationPermission = async () => {
@@ -375,7 +375,7 @@ export const WebSocketProvider = ({ children }) => {
                 setSocket(ws);
                 setConnectionStatus('connected');
                 cancelDisconnectedNotification(); // Cancel any existing disconnection notification
-                startLocationTracking();
+              
             };
 
             ws.onmessage = (event) => {
@@ -390,7 +390,7 @@ export const WebSocketProvider = ({ children }) => {
                 isConnectingRef.current = false; // Reset flag on close
                 setSocket(null);
                 setConnectionStatus('disconnected');
-                stopLocationTracking();
+            
                 // Show notification only if user intended to be online (unexpected disconnect)
                 if (intendedOnlineState.current) {
                     displayDisconnectedNotification();
@@ -419,8 +419,7 @@ export const WebSocketProvider = ({ children }) => {
         intendedOnlineState.current = false;
         socketRef.current?.close();
         setSocket(null);
-        setConnectionStatus('disconnected');
-        stopLocationTracking();
+        setConnectionStatus('disconnected'); 
     };
 
     const handleMessage = async (data) => {
@@ -525,39 +524,6 @@ export const WebSocketProvider = ({ children }) => {
         if (notifee) notifee.cancelNotification(`job_alert_${jobId}`);
     };
 
-    // Location logic (same as before)
-    const startLocationTracking = async () => {
-        if (locationWatchId.current) return;
-        let { status } = await Location.requestForegroundPermissionsAsync();
-        if (status !== 'granted') return;
-
-        locationWatchId.current = await Location.watchPositionAsync(
-            { accuracy: Location.Accuracy.High, distanceInterval: 10 },
-            (loc) => {
-                const coords = { latitude: loc.coords.latitude, longitude: loc.coords.longitude };
-                latestCoordsRef.current = coords;
-                setMechanicCoords(coords);
-            }
-        );
-
-        locationIntervalRef.current = setInterval(() => {
-            if (latestCoordsRef.current && socketRef.current?.readyState === WebSocket.OPEN) {
-                socketRef.current.send(JSON.stringify({
-                    type: 'location_update',
-                    ...latestCoordsRef.current,
-                    job_id: jobRef.current?.id || null
-                }));
-            }
-        }, 2500);
-    };
-
-    const stopLocationTracking = () => {
-        if (locationWatchId.current) locationWatchId.current.remove();
-        if (locationIntervalRef.current) clearInterval(locationIntervalRef.current);
-        locationWatchId.current = null;
-        locationIntervalRef.current = null;
-    };
-
     const setIsOnline = async (val) => {
         setIsOnlineState(val);
         intendedOnlineState.current = val;
@@ -605,8 +571,8 @@ export const WebSocketProvider = ({ children }) => {
     };
 
     const value = React.useMemo(() => ({
-        isOnline, setIsOnline, connectionStatus, job, pendingJobs, mechanicCoords, acceptJob, rejectJob, completeJob, cancelJob, reconnect, stopRing, isRinging
-    }), [isOnline, connectionStatus, job, pendingJobs, mechanicCoords, isRinging]);
+        isOnline, setIsOnline, connectionStatus, job, pendingJobs, acceptJob, rejectJob, completeJob, cancelJob, reconnect, stopRing, isRinging
+    }), [isOnline, connectionStatus, job, pendingJobs, isRinging]);
 
     return (
         <WebSocketContext.Provider value={value}>

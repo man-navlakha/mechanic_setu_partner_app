@@ -216,17 +216,26 @@ export default function JobDetailsPage() {
             </View>
         );
     }
-
+const handleBack = () => {
+        if (router.canGoBack()) {
+            router.back();
+        } else {
+            // If no history exists (e.g., opened via Active Tab), go to Dashboard
+            router.replace('/(tabs)'); 
+        }
+    };
     const isNear = distance !== null && distance <= 0.5;
 
     return (
         <View className="flex-1 bg-slate-50">
 
             {/* 1. FLOATING HEADER */}
-            <SafeAreaView className="absolute top-0 w-full z-20 pointer-events-box-none">
+           <SafeAreaView className="absolute top-0 w-full z-20 pointer-events-box-none">
                 <View className="mx-5 flex-row justify-between items-center pointer-events-auto">
+                    
+                    {/* UPDATE THIS TOUCHABLEOPACITY */}
                     <TouchableOpacity
-                        onPress={() => router.back()}
+                        onPress={handleBack} 
                         className="bg-white/90 p-3.5 rounded-2xl shadow-sm border border-slate-100/50 backdrop-blur-md"
                     >
                         <ArrowLeft size={22} color="#1e293b" strokeWidth={2.5} />

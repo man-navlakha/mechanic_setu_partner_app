@@ -1,8 +1,9 @@
+import { Image } from 'expo-image';
 import { Bike, Car, Check, ChevronsRight, MapPin, Truck, User, VolumeOff, X } from 'lucide-react-native';
 import { useColorScheme } from 'nativewind';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Dimensions, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Dimensions, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
     Extrapolate,
@@ -168,7 +169,13 @@ export default function JobNotificationPopup({ job, onAccept, onReject, onMinimi
                     <View style={styles.row}>
                         <View style={[styles.iconCircle, { backgroundColor: isDark ? '#334155' : '#fce7f3' }]}>
                             {job.user_profile_pic ? (
-                                <Image source={{ uri: job.user_profile_pic }} style={styles.userAvatar} />
+                               <Image 
+    source={job.user_profile_pic} 
+    style={styles.userAvatar} 
+    contentFit="cover"
+    transition={200} // Smooth fade in
+    cachePolicy="disk" 
+/>
                             ) : (
                                 <User size={20} color={isDark ? '#f472b6' : '#db2777'} />
                             )}

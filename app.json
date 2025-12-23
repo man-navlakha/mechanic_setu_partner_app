@@ -24,7 +24,10 @@
       "permissions": [
         "USE_FULL_SCREEN_INTENT",
         "FOREGROUND_SERVICE",
-        "VIBRATE"
+        "VIBRATE",
+        "ACCESS_COARSE_LOCATION", 
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION"
       ],
       "config": {
         "googleMaps": {
@@ -58,6 +61,12 @@
               "../../node_modules/@notifee/react-native/android/libs"
             ]
           }
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "isAndroidBackgroundLocationEnabled": true
         }
       ],
       "expo-secure-store",

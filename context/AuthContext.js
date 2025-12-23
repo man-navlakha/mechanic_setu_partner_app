@@ -102,9 +102,11 @@ export function AuthProvider({ children }) {
         setUser(userData);
         setError(null);
 
-        // Save user data to SecureStore for persistence
-        await SecureStore.setItemAsync('user_data', JSON.stringify(userData));
-        console.log("[Auth] User data saved to SecureStore");
+      if (cookieString) {
+        // REPLACE: await SecureStore.setItemAsync('session_cookie', cookieString);
+        // WITH:
+        await setSessionCookie(cookieString); 
+    }
 
         // Also save cookie if provided (for API calls)
         if (cookieString && cookieString.length > 0) {

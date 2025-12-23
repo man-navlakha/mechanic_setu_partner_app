@@ -1,20 +1,21 @@
 import BottomSheet, { BottomSheetScrollView } from '@gorhom/bottom-sheet';
 import { useColorScheme } from 'nativewind';
 import { forwardRef, useMemo } from 'react';
+import { View } from 'react-native'; // Import View
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const DraggableBottomSheet = forwardRef(({
     children,
     snapPoints = ['15%', '45%', '90%'],
     initialIndex = 0,
+    useScrollView = true, // NEW PROP: Defaults to true
 }, ref) => {
     const { colorScheme } = useColorScheme();
     const isDark = colorScheme === 'dark';
     const insets = useSafeAreaInsets();
 
-    // Styles dynamically based on theme
     const backgroundStyle = useMemo(() => ({
-        backgroundColor: isDark ? '#1e293b' : 'rgba(255, 255, 255, 0.98)', // Slightly more opaque
+        backgroundColor: isDark ? '#1e293b' : 'rgba(255, 255, 255, 0.98)',
         borderTopLeftRadius: 24,
         borderTopRightRadius: 24,
         borderWidth: 1,
@@ -42,16 +43,23 @@ const DraggableBottomSheet = forwardRef(({
             enablePanDownToClose={false}
             android_keyboardInputMode="adjustResize"
         >
-            <BottomSheetScrollView
-                contentContainerStyle={{
-                    paddingHorizontal: 16,
-                    // 60 (TabBar) + Insets + 20 (Buffer)
-                    paddingBottom: 80 + insets.bottom
-                }}
-                showsVerticalScrollIndicator={false}
-            >
-                {children}
-            </BottomSheetScrollView>
+            {/* Logic: Only render ScrollView if useScrollView is true */}
+            {useScrollView ? (
+                <BottomSheetScrollView
+                    contentContainerStyle={{
+                        paddingHorizontal: 16,
+                        paddingBottom: 80 + insets.bottom
+                    }}
+                    showsVerticalScrollIndicator={false}
+                >
+                    {children}
+                </BottomSheetScrollView>
+            ) : (
+                // If false, render a View (FlatList handles scroll)
+                <View style={{ flex: 1, paddingHorizontal: 16, paddingBottom: 80 + insets.bottom }}>
+                    {children}
+                </View>
+            )}
         </BottomSheet>
     );
 });

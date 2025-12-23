@@ -3,6 +3,7 @@ import { useEffect } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { AuthProvider, useAuth } from '../context/AuthContext';
+import { LocationProvider } from '../context/LocationContext'; // <--- IMPORT THIS
 import { WebSocketProvider } from '../context/WebSocketContext';
 import "../global.css";
 import "../i18n/i18n";
@@ -18,52 +19,38 @@ interface AuthContextType {
 }
 
 function NavigationGuard() {
-  const { user, profile, loading } = useAuth() as AuthContextType;
-  const segments = useSegments();
-  const router = useRouter();
-  const navigationState = useRootNavigationState();
+ const { user, profile, loading } = useAuth() as AuthContextType;
+    const segments = useSegments();
+    const router = useRouter();
+    const navigationState = useRootNavigationState();
 
-  useEffect(() => {
-    // Wait for auth to be determined AND for navigation state to be initialized
-    if (loading || !navigationState?.key) return;
+    useEffect(() => {
+        if (loading || !navigationState?.key) return;
+        const currentRoute = segments[0] as string | undefined;
 
-    const currentRoute = segments[0] as string | undefined;
-
-    // --- CASE 1: NOT LOGGED IN ---
-    if (!user) {
-      if (currentRoute !== 'login' && currentRoute !== 'verify' && currentRoute !== 'index') {
-        router.replace('/login');
-      }
-      return;
-    }
-
-    // --- CASE 2: LOGGED IN ---
-    if (user) {
-      if (!profile) {
-        if (currentRoute !== 'form') {
-          router.replace('/form');
+        if (!user) {
+            if (currentRoute !== 'login' && currentRoute !== 'verify' && currentRoute !== 'index') {
+                router.replace('/login');
+            }
+            return;
         }
-        return;
-      }
 
-      if (profile.is_verified) {
-        // Redirect to tabs if on public pages
-        if (currentRoute === 'login' || currentRoute === 'verify' || currentRoute === 'unverified' || currentRoute === 'form') {
-          router.replace('/(tabs)');
+        if (user) {
+            if (!profile) {
+                if (currentRoute !== 'form') router.replace('/form');
+                return;
+            }
+            if (profile.is_verified) {
+                if (['login', 'verify', 'unverified', 'form'].includes(currentRoute || '')) {
+                    router.replace('/(tabs)');
+                }
+            } else {
+                if (currentRoute !== 'unverified') router.replace('/unverified' as any);
+            }
         }
-      } else {
-        // Force unverified screen if profile exists but not verified
-        if (currentRoute !== 'unverified') {
-          router.replace('/unverified' as any);
-        }
-      }
-    }
-  }, [user, profile, loading, segments, navigationState?.key]);
-
-  return null;
-}
-
-function RootLayoutContent() {
+    }, [user, profile, loading, segments, navigationState?.key]);
+    return null;
+}function RootLayoutContent() {
   const { loading } = useAuth() as AuthContextType;
 
   if (loading) {
@@ -75,19 +62,22 @@ function RootLayoutContent() {
   }
 
   return (
-    <WebSocketProvider>
-      <GestureHandlerRootView style={{ flex: 1 }}>
-        <NavigationGuard />
-        <Stack screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="(tabs)" />
-          <Stack.Screen name="login" />
-          <Stack.Screen name="verify" />
-          <Stack.Screen name="form" />
-          <Stack.Screen name="unverified" />
-          <Stack.Screen name="job/[id]" />
-        </Stack>
-      </GestureHandlerRootView>
-    </WebSocketProvider>
+    // 1. WRAP LOCATION PROVIDER HERE
+    <LocationProvider> 
+      <WebSocketProvider>
+        <GestureHandlerRootView style={{ flex: 1 }}>
+          <NavigationGuard />
+          <Stack screenOptions={{ headerShown: false }}>
+            <Stack.Screen name="(tabs)" />
+            <Stack.Screen name="login" />
+            <Stack.Screen name="verify" />
+            <Stack.Screen name="form" />
+            <Stack.Screen name="unverified" />
+            <Stack.Screen name="job/[id]" />
+          </Stack>
+        </GestureHandlerRootView>
+      </WebSocketProvider>
+    </LocationProvider>
   );
 }
 
@@ -98,6 +88,5 @@ export default function RootLayoutNav() {
     </AuthProvider>
   );
 }
-
 
 
