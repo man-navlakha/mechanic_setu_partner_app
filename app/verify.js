@@ -54,15 +54,33 @@ export default function VerifyScreen() {
     }, [isResendDisabled, timer]);
 
     const handleChange = (text, index) => {
-        if (isNaN(text)) return;
-        const newOtp = [...otp];
-        newOtp[index] = text;
-        setOtp(newOtp);
-
-        if (text.length === 1 && index < 5) {
-            inputRefs.current[index + 1]?.focus();
+    // 1. Handle Pasting (if text length > 1)
+    if (text.length > 1) {
+        const pastedData = text.trim().slice(0, 6); // Take first 6 chars
+        if (/^\d+$/.test(pastedData)) { // Check if it's only numbers
+            const newOtp = [...otp];
+            pastedData.split('').forEach((char, i) => {
+                if (i < 6) newOtp[i] = char;
+            });
+            setOtp(newOtp);
+            
+            // Focus the last filled box or the next empty one
+            const nextFocusIndex = pastedData.length < 6 ? pastedData.length : 5;
+            inputRefs.current[nextFocusIndex]?.focus();
         }
-    };
+        return;
+    }
+
+    // 2. Handle Normal Single Character Input
+    if (isNaN(text)) return;
+    const newOtp = [...otp];
+    newOtp[index] = text;
+    setOtp(newOtp);
+
+    if (text.length === 1 && index < 5) {
+        inputRefs.current[index + 1]?.focus();
+    }
+};
 
     const handleKeyPress = (e, index) => {
         if (e.nativeEvent.key === 'Backspace') {
@@ -89,29 +107,22 @@ export default function VerifyScreen() {
             const payload = {
                 key: ctx.key,
                 id: ctx.id,
-                otp: otp.join('')
+                otp: code
             };
 
             const verifyRes = await api.post('/users/otp-verify/', payload);
 
+            // Extract the cookie from headers
             let newCookie = verifyRes.headers['set-cookie'];
             if (Array.isArray(newCookie)) {
                 newCookie = newCookie.join('; ');
             }
-            // If new cookie is received, update it
-            if (newCookie) {
-                const SecureStore = require('expo-secure-store');
-                await SecureStore.setItemAsync('session_cookie', newCookie);
-            }
 
-            // We pass null for cookie to login() because it should read from SecureStore or we updated it above
-            // Actually check AuthContext logic. If login logic needs the cookie string, we pass newCookie.
-            // But let's assume AuthContext might re-read or we pass it just in case.
-            const finalCookie = newCookie || null;
-
+            // CLEANUP: Don't call SecureStore.setItemAsync here. 
+            // Just pass the cookie to the login function.
             await login(
                 { id: ctx.id, status: ctx.status },
-                finalCookie
+                newCookie || null
             );
 
             if (ctx.status === 'New User') {
@@ -121,8 +132,9 @@ export default function VerifyScreen() {
             }
 
         } catch (err) {
-            console.error('[Verify] Error:', err.response?.status, err.response?.data);
-            setError('Verification failed. Session may have expired.');
+            // This now correctly catches errors from both the API and the login function
+            console.error('[Verify] Error:', err.message || err);
+            setError('Verification failed. Please try again.');
         } finally {
             setLoading(false);
         }
@@ -258,7 +270,7 @@ export default function VerifyScreen() {
                                         onFocus={() => setFocusedIndex(index)}
                                         onBlur={() => setFocusedIndex(-1)}
                                         keyboardType="number-pad"
-                                        maxLength={1}
+                                       maxLength={index === focusedIndex ? 6 : 1}
                                         selectTextOnFocus
                                         style={{
                                             width: 45,

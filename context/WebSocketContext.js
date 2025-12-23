@@ -80,7 +80,7 @@ export const WebSocketProvider = ({ children }) => {
             stopRing();
         };
     }, [user]); // Re-run when user changes (login/logout)
-useEffect(() => {
+    useEffect(() => {
         if (job && job.status === 'WORKING') {
             setIsHighAccuracy(true); // Switch to High Power/Precision
         } else {
@@ -88,7 +88,7 @@ useEffect(() => {
         }
     }, [job?.status, setIsHighAccuracy]);
     // --- CONNECTION MONITOR (Heartbeat) ---
-   useEffect(() => {
+    useEffect(() => {
         const interval = setInterval(() => {
             // Read from the Ref directly. This DOES NOT trigger re-renders.
             if (latestCoordsRef.current && socketRef.current?.readyState === WebSocket.OPEN) {
@@ -212,42 +212,21 @@ useEffect(() => {
     const stopSignal = useRef(false);
 
     // --- 3. SOUND CONTROL ---
+    // --- OPTIMIZED SOUND CONTROL ---
     const playNotificationSound = async () => {
-        console.log("[Audio] playNotificationSound called");
-
-        // Increment ID to invalidate previous pending loads
-        const mySoundId = currentSoundId.current + 1;
-        currentSoundId.current = mySoundId;
-        stopSignal.current = false;
+        if (!soundRef.current) {
+            console.warn("[Audio] Sound not preloaded yet.");
+            return;
+        }
 
         try {
-            // Unload previous sound if it exists
-            if (soundRef.current) {
-                const status = await soundRef.current.getStatusAsync();
-                if (status.isLoaded) {
-                    await soundRef.current.stopAsync();
-                    await soundRef.current.unloadAsync();
-                }
-                soundRef.current = null;
+            const status = await soundRef.current.getStatusAsync();
+            if (status.isLoaded) {
+                console.log("[Audio] Playing preloaded sound...");
+                // replayAsync() restarts the sound from the beginning if it was already playing
+                await soundRef.current.replayAsync();
+                setIsRinging(true);
             }
-
-            console.log("[Audio] Loading sound file...");
-            const { sound } = await Audio.Sound.createAsync(
-                require('../assets/sounds/alert.mp3'),
-                { isLooping: true }
-            );
-
-            // Check if we were superseded by a newer call or stopped
-            if (currentSoundId.current !== mySoundId || stopSignal.current) {
-                console.log("[Audio] Sound load aborted (superseded or stopped).");
-                await sound.unloadAsync();
-                return;
-            }
-
-            soundRef.current = sound;
-            console.log("[Audio] Playing new sound...");
-            await sound.playAsync();
-            setIsRinging(true);
         } catch (error) {
             console.error("[Audio] Play Error:", error);
             setIsRinging(false);
@@ -255,27 +234,45 @@ useEffect(() => {
     };
 
     const stopRing = async () => {
-        console.log("[Audio] stopRing called");
-        stopSignal.current = true; // Signal pending loads to stop
+        if (!soundRef.current) return;
 
         try {
-            if (soundRef.current) {
-                const status = await soundRef.current.getStatusAsync();
-                if (status.isLoaded) {
-                    await soundRef.current.stopAsync();
-                    await soundRef.current.unloadAsync();
-                }
-                soundRef.current = null;
-                console.log("[Audio] Sound stopped.");
+            const status = await soundRef.current.getStatusAsync();
+            if (status.isLoaded && status.isPlaying) {
+                console.log("[Audio] Stopping sound...");
+                await soundRef.current.stopAsync();
             }
         } catch (error) {
             console.error("[Audio] Stop Error:", error);
-            soundRef.current = null;
         } finally {
             setIsRinging(false);
         }
     };
+    // Add this effect alongside your other initialization effects
+    useEffect(() => {
+        const loadSound = async () => {
+            try {
+                console.log("[Audio] Preloading sound...");
+                const { sound } = await Audio.Sound.createAsync(
+                    require('../assets/sounds/alert.mp3'),
+                    { isLooping: true }
+                );
+                soundRef.current = sound;
+            } catch (error) {
+                console.error("[Audio] Failed to preload sound:", error);
+            }
+        };
 
+        loadSound();
+
+        // Cleanup: Unload the sound when the provider unmounts
+        return () => {
+            if (soundRef.current) {
+                console.log("[Audio] Unloading sound...");
+                soundRef.current.unloadAsync();
+            }
+        };
+    }, []);
     // --- 4. API & STATUS ---
     const fetchInitialStatus = async () => {
         try {
@@ -375,7 +372,7 @@ useEffect(() => {
                 setSocket(ws);
                 setConnectionStatus('connected');
                 cancelDisconnectedNotification(); // Cancel any existing disconnection notification
-              
+
             };
 
             ws.onmessage = (event) => {
@@ -390,7 +387,7 @@ useEffect(() => {
                 isConnectingRef.current = false; // Reset flag on close
                 setSocket(null);
                 setConnectionStatus('disconnected');
-            
+
                 // Show notification only if user intended to be online (unexpected disconnect)
                 if (intendedOnlineState.current) {
                     displayDisconnectedNotification();
@@ -419,7 +416,7 @@ useEffect(() => {
         intendedOnlineState.current = false;
         socketRef.current?.close();
         setSocket(null);
-        setConnectionStatus('disconnected'); 
+        setConnectionStatus('disconnected');
     };
 
     const handleMessage = async (data) => {

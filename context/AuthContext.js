@@ -1,6 +1,6 @@
 import * as SecureStore from 'expo-secure-store';
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import api from '../utils/api';
+import api, { setSessionCookie } from '../utils/api';
 
 const AuthContext = createContext({});
 
