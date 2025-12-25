@@ -1,4 +1,4 @@
-import { Audio } from 'expo-av';
+import { Audio, InterruptionModeAndroid, InterruptionModeIOS } from 'expo-av';
 import { router } from 'expo-router';
 import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { Alert, AppState } from 'react-native';
@@ -109,43 +109,43 @@ export const WebSocketProvider = ({ children }) => {
 
     // --- 2. NOTIFICATION LOGIC (Safe) ---
     const displayIncomingJobNotification = async (newJob) => {
-    if (!notifee) return;
+        if (!notifee) return;
 
-    const channelId = await notifee.createChannel({
-        id: 'job_requests_urgent',
-        name: 'Urgent Job Requests',
-        importance: 4, // High importance
-        visibility: 1, // Public
-        sound: 'default',
-    });
+        const channelId = await notifee.createChannel({
+            id: 'job_requests_urgent',
+            name: 'Urgent Job Requests',
+            importance: 4, // High importance
+            visibility: 1, // Public
+            sound: 'default',
+        });
 
-    await notifee.displayNotification({
-        id: `job_alert_${newJob.id}`,
-        title: '🚨 URGENT: NEW JOB FOUND',
-        body: `${newJob.vehical_type} - ${newJob.problem}`,
-        data: { jobId: String(newJob.id) },
-        android: {
-            channelId,
-            importance: 4,
-            // This is the key for showing over other apps/lockscreen
-            fullScreenAction: {
-                id: 'default',
+        await notifee.displayNotification({
+            id: `job_alert_${newJob.id}`,
+            title: '🚨 URGENT: NEW JOB FOUND',
+            body: `${newJob.vehical_type} - ${newJob.problem}`,
+            data: { jobId: String(newJob.id) },
+            android: {
+                channelId,
+                importance: 4,
+                // This is the key for showing over other apps/lockscreen
+                fullScreenAction: {
+                    id: 'default',
+                },
+                // Makes it stick until acted upon
+                ongoing: true,
+                // Categories help the OS prioritize the popup
+                category: 'call',
+                pressAction: {
+                    id: 'default',
+                    launchActivity: 'default',
+                },
+                actions: [
+                    { title: '✅ ACCEPT', pressAction: { id: 'accept', launchActivity: 'default' } },
+                    { title: '❌ REJECT', pressAction: { id: 'reject' } },
+                ],
             },
-            // Makes it stick until acted upon
-            ongoing: true,
-            // Categories help the OS prioritize the popup
-            category: 'call', 
-            pressAction: {
-                id: 'default',
-                launchActivity: 'default',
-            },
-            actions: [
-                { title: '✅ ACCEPT', pressAction: { id: 'accept', launchActivity: 'default' } },
-                { title: '❌ REJECT', pressAction: { id: 'reject' } },
-            ],
-        },
-    });
-};
+        });
+    };
 
     // --- DISCONNECTION NOTIFICATION ---
     const displayDisconnectedNotification = async () => {
@@ -228,7 +228,7 @@ export const WebSocketProvider = ({ children }) => {
             if (status.isLoaded) {
                 console.log("[Audio] Playing preloaded sound...");
                 // replayAsync() restarts the sound from the beginning if it was already playing
-                await soundRef.current.replayAsync();
+                await soundRef.current.replayAsync().catch(err => console.log("Replay ignore:", err));
                 setIsRinging(true);
             }
         } catch (error) {
@@ -252,28 +252,58 @@ export const WebSocketProvider = ({ children }) => {
             setIsRinging(false);
         }
     };
-    // Add this effect alongside your other initialization effects
+    // --- Audio Init & Cleanup ---
     useEffect(() => {
-        const loadSound = async () => {
+        let isMounted = true;
+
+        const initAudio = async () => {
             try {
+                // Configure Audio once
+                await Audio.setAudioModeAsync({
+                    allowsRecordingIOS: false,
+                    staysActiveInBackground: true,
+                    interruptionModeIOS: InterruptionModeIOS.DuckOthers,
+                    playsInSilentModeIOS: true,
+                    shouldDuckAndroid: true,
+                    interruptionModeAndroid: InterruptionModeAndroid.DuckOthers,
+                    playThroughEarpieceAndroid: false
+                });
+
+                if (!isMounted) return;
+
                 console.log("[Audio] Preloading sound...");
                 const { sound } = await Audio.Sound.createAsync(
                     require('../assets/sounds/alert.mp3'),
                     { isLooping: true }
                 );
-                soundRef.current = sound;
+
+                if (isMounted) {
+                    soundRef.current = sound;
+                }
+                // CRITICAL FIX: Do NOT call sound.unloadAsync() here if !isMounted.
+                // Calling unloadAsync() from the creation callback on a background thread
+                // can cause the "Player accessed on wrong thread" crash. 
+                // We let the JS garbage collector handle the orphaned object in that rare race case.
             } catch (error) {
-                console.error("[Audio] Failed to preload sound:", error);
+                console.error("[Audio] Failed to init sound:", error);
             }
         };
 
-        loadSound();
+        initAudio();
 
-        // Cleanup: Unload the sound when the provider unmounts
         return () => {
-            if (soundRef.current) {
-                console.log("[Audio] Unloading sound...");
-                soundRef.current.unloadAsync();
+            isMounted = false;
+            const sound = soundRef.current;
+            // Detach ref immediately so other functions stop using it
+            soundRef.current = null;
+
+            if (sound) {
+                console.log("[Audio] Cleaning up sound...");
+                // Fire-and-forget unload. Do not await it in unmount.
+                sound.unloadAsync().catch(err => {
+                    // Ignore "Player accessed on wrong thread" or other unload errors here
+                    console.log("[Audio] Unload ignored:", err.message);
+                });
             }
         };
     }, []);
@@ -443,11 +473,11 @@ export const WebSocketProvider = ({ children }) => {
 
                 playNotificationSound(); // Play Sound (Restarts if already playing)
                 if (AppState.currentState !== 'active' && notifee) {
-        await displayIncomingJobNotification(data.service_request);
-    } else {
-        // If app is already open, show your internal JobNotificationPopup.js
-        playNotificationSound();
-    }
+                    await displayIncomingJobNotification(data.service_request);
+                } else {
+                    // If app is already open, show your internal JobNotificationPopup.js
+                    playNotificationSound();
+                }
                 break;
 
             case "job_status_update":
@@ -511,7 +541,14 @@ export const WebSocketProvider = ({ children }) => {
 
         } catch (err) {
             console.error("[JOB] Accept failed:", err);
-            Alert.alert("Error", "Could not accept job.");
+
+            const status = err.response?.status;
+            if (status === 404 || status === 409 || status === 410 || status === 400) {
+                Alert.alert("Job Unavailable", "This job is no longer available.");
+                setPendingJobs(prev => prev.filter(j => j.id !== jobId));
+            } else {
+                Alert.alert("Error", "Could not accept job.");
+            }
         }
     };
 

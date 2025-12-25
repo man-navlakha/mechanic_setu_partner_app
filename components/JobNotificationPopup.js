@@ -115,11 +115,18 @@ export default function JobNotificationPopup({ job, onAccept, onReject, onMinimi
                     <Text style={styles.muteText}>{t('jobPopup.stopSound')}</Text>
                 </TouchableOpacity>
 
-                {/* Deny Pill */}
-                <TouchableOpacity onPress={onReject} style={[styles.pillBtn, styles.denyPill]}>
-                    <X size={18} color="white" />
-                    <Text style={styles.denyText}>{t('jobPopup.deny')}</Text>
-                </TouchableOpacity>
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                    {/* Minimize/Close Pill */}
+                    <TouchableOpacity onPress={onMinimize} style={[styles.pillBtn, styles.mutePill]}>
+                        <Text style={styles.muteText}>{t('header.close') || 'Close'}</Text>
+                    </TouchableOpacity>
+
+                    {/* Deny Pill */}
+                    <TouchableOpacity onPress={onReject} style={[styles.pillBtn, styles.denyPill]}>
+                        <X size={18} color="white" />
+                        <Text style={styles.denyText}>{t('jobPopup.deny')}</Text>
+                    </TouchableOpacity>
+                </View>
             </View>
 
 
@@ -169,13 +176,13 @@ export default function JobNotificationPopup({ job, onAccept, onReject, onMinimi
                     <View style={styles.row}>
                         <View style={[styles.iconCircle, { backgroundColor: isDark ? '#334155' : '#fce7f3' }]}>
                             {job.user_profile_pic ? (
-                               <Image 
-    source={job.user_profile_pic} 
-    style={styles.userAvatar} 
-    contentFit="cover"
-    transition={200} // Smooth fade in
-    cachePolicy="disk" 
-/>
+                                <Image
+                                    source={job.user_profile_pic}
+                                    style={styles.userAvatar}
+                                    contentFit="cover"
+                                    transition={200} // Smooth fade in
+                                    cachePolicy="disk"
+                                />
                             ) : (
                                 <User size={20} color={isDark ? '#f472b6' : '#db2777'} />
                             )}

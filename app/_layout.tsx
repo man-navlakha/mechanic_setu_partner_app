@@ -1,4 +1,5 @@
 import { Stack, useRootNavigationState, useRouter, useSegments } from 'expo-router';
+import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -19,39 +20,50 @@ interface AuthContextType {
 }
 
 function NavigationGuard() {
- const { user, profile, loading } = useAuth() as AuthContextType;
-    const segments = useSegments();
-    const router = useRouter();
-    const navigationState = useRootNavigationState();
+  const { user, profile, loading } = useAuth() as AuthContextType;
+  const segments = useSegments();
+  const router = useRouter();
+  const navigationState = useRootNavigationState();
 
-    useEffect(() => {
-        if (loading || !navigationState?.key) return;
-        const currentRoute = segments[0] as string | undefined;
+  useEffect(() => {
+    if (loading || !navigationState?.key) return;
+    const currentRoute = segments[0] as string | undefined;
 
-        if (!user) {
-            if (currentRoute !== 'login' && currentRoute !== 'verify' && currentRoute !== 'index') {
-                router.replace('/login');
-            }
-            return;
+    if (!user) {
+      if (currentRoute !== 'login' && currentRoute !== 'verify' && currentRoute !== 'index') {
+        router.replace('/login');
+      }
+      return;
+    }
+
+    if (user) {
+      if (!profile) {
+        if (currentRoute !== 'form') router.replace('/form');
+        return;
+      }
+      if (profile.is_verified) {
+        if (['login', 'verify', 'unverified', 'form'].includes(currentRoute || '')) {
+          router.replace('/(tabs)');
         }
+      } else {
+        if (currentRoute !== 'unverified') router.replace('/unverified' as any);
+      }
+    }
+  }, [user, profile, loading, segments, navigationState?.key]);
+  return null;
+}
+// Keep the splash screen visible while we fetch resources
+SplashScreen.preventAutoHideAsync().catch(() => { });
 
-        if (user) {
-            if (!profile) {
-                if (currentRoute !== 'form') router.replace('/form');
-                return;
-            }
-            if (profile.is_verified) {
-                if (['login', 'verify', 'unverified', 'form'].includes(currentRoute || '')) {
-                    router.replace('/(tabs)');
-                }
-            } else {
-                if (currentRoute !== 'unverified') router.replace('/unverified' as any);
-            }
-        }
-    }, [user, profile, loading, segments, navigationState?.key]);
-    return null;
-}function RootLayoutContent() {
+function RootLayoutContent() {
   const { loading } = useAuth() as AuthContextType;
+
+  useEffect(() => {
+    if (!loading) {
+      // Hide splash screen once auth loading is done
+      SplashScreen.hideAsync().catch(() => { });
+    }
+  }, [loading]);
 
   if (loading) {
     return (
@@ -63,7 +75,7 @@ function NavigationGuard() {
 
   return (
     // 1. WRAP LOCATION PROVIDER HERE
-    <LocationProvider> 
+    <LocationProvider>
       <WebSocketProvider>
         <GestureHandlerRootView style={{ flex: 1 }}>
           <NavigationGuard />

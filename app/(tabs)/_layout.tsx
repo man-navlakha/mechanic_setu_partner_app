@@ -4,13 +4,12 @@ import {
     LayoutDashboard,
     Settings,
     User,
-    Wallet,
-    Wrench
+    Wallet
 } from 'lucide-react-native';
 import { useColorScheme } from 'nativewind';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { Platform, StyleSheet, View } from 'react-native';
+import { Platform, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useWebSocket } from '../../context/WebSocketContext';
 
@@ -20,9 +19,6 @@ export default function TabLayout() {
     const { t } = useTranslation();
     const { job } = useWebSocket() as any;
     const insets = useSafeAreaInsets();
-
-    const isActiveJob =
-        job && (job.status === 'ACCEPTED' || job.status === 'WORKING' || job.status === 'ARRIVED');
 
     const colors = {
         bg: isDark ? 'rgba(0, 0, 0, 0.8)' : 'rgba(255, 255, 255, 0.8)',
@@ -80,27 +76,7 @@ export default function TabLayout() {
                 }}
             />
 
-            <Tabs.Screen
-                name="active-job"
-                options={{
-                    href: isActiveJob && job?.id ? `/job/${job.id}` : null,
-                    tabBarLabel: t('tabs.active'),
-                    tabBarIcon: () => (
-                        <View
-                            style={[
-                                styles.fab,
-                                {
-                                    backgroundColor: isActiveJob
-                                        ? colors.danger
-                                        : colors.inactive,
-                                },
-                            ]}
-                        >
-                            <Wrench size={24} color="white" />
-                        </View>
-                    ),
-                }}
-            />
+
 
             <Tabs.Screen
                 name="profile"
@@ -117,6 +93,8 @@ export default function TabLayout() {
                     tabBarIcon: ({ color }) => <Settings size={22} color={color} />,
                 }}
             />
+
+
         </Tabs>
     );
 }

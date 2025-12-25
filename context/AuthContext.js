@@ -102,16 +102,13 @@ export function AuthProvider({ children }) {
         setUser(userData);
         setError(null);
 
-      if (cookieString) {
-        // REPLACE: await SecureStore.setItemAsync('session_cookie', cookieString);
-        // WITH:
-        await setSessionCookie(cookieString); 
-    }
+        // Save User Data for Persistence (CRITICAL FIX)
+        if (userData) {
+            await SecureStore.setItemAsync('user_data', JSON.stringify(userData));
+        }
 
-        // Also save cookie if provided (for API calls)
-        if (cookieString && cookieString.length > 0) {
-            await SecureStore.setItemAsync('session_cookie', cookieString);
-            console.log("[Auth] Cookie saved to SecureStore");
+        if (cookieString) {
+            await setSessionCookie(cookieString);
         }
 
         // Fetch profile immediately after login

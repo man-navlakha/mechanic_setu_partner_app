@@ -7,6 +7,7 @@ const BASE_URL = 'https://mechanic-setu.onrender.com/api/';
 
 const api = axios.create({
     baseURL: BASE_URL,
+    timeout: 15000,
     headers: {
         'Content-Type': 'application/json',
     },

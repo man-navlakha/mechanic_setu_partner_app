@@ -122,25 +122,30 @@ export default function Dashboard() {
     const [showLanguageModal, setShowLanguageModal] = useState(false);
     const [viewingJobId, setViewingJobId] = useState(null);
     const prevPendingLength = useRef(0);
-useEffect(() => {
-    const verifyOverlay = async () => {
-        const isGranted = await checkOverlayPermission();
-        if (!isGranted && isOnline) {
-            Alert.alert(
-                "Permission Required",
-                "To show job alerts while you are using other apps, please enable 'Display over other apps' in settings.",
-                [
-                    { text: "Cancel", style: "cancel" },
-                    { text: "Open Settings", onPress: requestOverlayPermission }
-                ]
-            );
-        }
-    };
+    const hasAskedOverlay = useRef(false);
 
-    if (isOnline) {
-        verifyOverlay();
-    }
-}, [isOnline]);
+    useEffect(() => {
+        const verifyOverlay = async () => {
+            if (hasAskedOverlay.current) return;
+
+            const isGranted = await checkOverlayPermission();
+            if (!isGranted && isOnline) {
+                hasAskedOverlay.current = true;
+                Alert.alert(
+                    "Permission Required",
+                    "To show job alerts while using other apps, please enable 'Display over other apps' in settings.\n\n(If you have already enabled this, you can ignore this message.)",
+                    [
+                        { text: "Ignore", style: "cancel" },
+                        { text: "Open Settings", onPress: requestOverlayPermission }
+                    ]
+                );
+            }
+        };
+
+        if (isOnline) {
+            verifyOverlay();
+        }
+    }, [isOnline]);
     // Auto-open logic for new jobs
     useEffect(() => {
         const currentLength = pendingJobs.length;
@@ -167,21 +172,66 @@ useEffect(() => {
 
     // 1. INITIALIZE MAP
     useEffect(() => {
+        let isMounted = true;
         (async () => {
+            console.log("[Dashboard] Requesting Location Permissions...");
             let { status } = await Location.requestForegroundPermissionsAsync();
             if (status !== 'granted') {
-                setMapLoading(false);
+                console.log("[Dashboard] Location Permission Denied.");
+                if (isMounted) setMapLoading(false);
                 return;
             }
-            let loc = await Location.getCurrentPositionAsync({});
-            setLocation({
-                latitude: loc.coords.latitude,
-                longitude: loc.coords.longitude,
-                latitudeDelta: 0.015,
-                longitudeDelta: 0.015,
-            });
-            setMapLoading(false);
+
+            console.log("[Dashboard] Permission Granted. Getting Location...");
+
+            // OPTIMIZATION: Try last known location first (Fastest)
+            let loc = await Location.getLastKnownPositionAsync({});
+            if (loc && isMounted) {
+                console.log("[Dashboard] Found Last Known Location.");
+                setLocation({
+                    latitude: loc.coords.latitude,
+                    longitude: loc.coords.longitude,
+                    latitudeDelta: 0.015,
+                    longitudeDelta: 0.015,
+                });
+                setMapLoading(false);
+            }
+
+            // Then try to get fresh high-accuracy location
+            try {
+                // Race a timeout against the location fetch to prevent hanging
+                const freshLocPromise = Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+                const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 10000));
+
+                const freshLoc = await Promise.race([freshLocPromise, timeoutPromise]);
+
+                if (freshLoc && isMounted) {
+                    console.log("[Dashboard] Got Fresh Location.");
+                    setLocation({
+                        latitude: freshLoc.coords.latitude,
+                        longitude: freshLoc.coords.longitude,
+                        latitudeDelta: 0.015,
+                        longitudeDelta: 0.015,
+                    });
+                }
+            } catch (e) {
+                console.log("[Dashboard] Location fetch error or timeout:", e.message);
+                // If we didn't have a last known location, we must stop loading anyway
+                // We'll default to a fallback location (e.g. India center) if nothing found
+                if (!loc && isMounted) {
+                    setLocation({
+                        latitude: 20.5937,
+                        longitude: 78.9629,
+                        latitudeDelta: 5.0,
+                        longitudeDelta: 5.0,
+                    });
+                }
+            } finally {
+                if (isMounted) setMapLoading(false);
+            }
         })();
+
+        return () => { isMounted = false; };
     }, []);
 
     // 2. LIVE UPDATES
@@ -381,12 +431,12 @@ useEffect(() => {
 
 
             {/* --- BOTTOM SHEET (Draggable) --- */}
-           <DraggableBottomSheet
-    initialIndex={0}
-    snapPoints={['25%', '45%', '85%']}
-    className="mt-20 bottom-0"
-    useScrollView={false} // <--- ADD THIS
->
+            <DraggableBottomSheet
+                initialIndex={0}
+                snapPoints={['25%', '45%', '85%']}
+                className="mt-20 bottom-0"
+                useScrollView={false} // <--- ADD THIS
+            >
                 {/* Status Display Row */}
                 <View className="flex-row justify-between items-center mb-6">
                     <View>
@@ -459,47 +509,47 @@ useEffect(() => {
                         <Text className="text-slate-400 dark:text-slate-500 font-medium text-sm">{t('dashboard.noRecentJobs')}</Text>
                     </View>
                 ) : (
-                   <BottomSheetFlatList
-    data={pastJobs}
-    keyExtractor={(item) => item.id.toString()}
-    contentContainerStyle={{ paddingBottom: 20 }}
-    renderItem={({ item }) => (
-        <TouchableOpacity
-            // REMOVED key={index} -> Caused ReferenceError
-            onPress={() => router.push(`/job/${item.id}`)}
-            className="bg-slate-50 dark:bg-slate-800 p-4 rounded-xl border border-slate-100 dark:border-slate-700 mb-3 flex-row justify-between items-center"
-        >
-            <View className="flex-1 mr-3">
-                <View className="flex-row items-center mb-1">
-                    <Text className="font-bold text-slate-800 dark:text-slate-100 text-base flex-1" numberOfLines={1}>
-                        {/* ENSURE THIS SAYS 'item.problem', NOT 'job.problem' */}
-                        {item.problem}
-                    </Text>
-                    <View className={`px-2 py-0.5 rounded ml-2 ${item.status === 'COMPLETED' ? 'bg-green-100 dark:bg-green-900/30' : 'bg-slate-200 dark:bg-slate-700'}`}>
-                        <Text className={`text-[10px] font-bold ${item.status === 'COMPLETED' ? 'text-green-700 dark:text-green-400' : 'text-slate-500 dark:text-slate-400'}`}>
-                            {item.status}
-                        </Text>
-                    </View>
-                </View>
+                    <BottomSheetFlatList
+                        data={pastJobs}
+                        keyExtractor={(item) => item.id.toString()}
+                        contentContainerStyle={{ paddingBottom: 20 }}
+                        renderItem={({ item }) => (
+                            <TouchableOpacity
+                                // REMOVED key={index} -> Caused ReferenceError
+                                onPress={() => router.push(`/job/${item.id}`)}
+                                className="bg-slate-50 dark:bg-slate-800 p-4 rounded-xl border border-slate-100 dark:border-slate-700 mb-3 flex-row justify-between items-center"
+                            >
+                                <View className="flex-1 mr-3">
+                                    <View className="flex-row items-center mb-1">
+                                        <Text className="font-bold text-slate-800 dark:text-slate-100 text-base flex-1" numberOfLines={1}>
+                                            {/* ENSURE THIS SAYS 'item.problem', NOT 'job.problem' */}
+                                            {item.problem}
+                                        </Text>
+                                        <View className={`px-2 py-0.5 rounded ml-2 ${item.status === 'COMPLETED' ? 'bg-green-100 dark:bg-green-900/30' : 'bg-slate-200 dark:bg-slate-700'}`}>
+                                            <Text className={`text-[10px] font-bold ${item.status === 'COMPLETED' ? 'text-green-700 dark:text-green-400' : 'text-slate-500 dark:text-slate-400'}`}>
+                                                {item.status}
+                                            </Text>
+                                        </View>
+                                    </View>
 
-                <View className="flex-row items-center">
-                    <MapPin size={10} color={isDark ? "#64748b" : "#94a3b8"} className="mr-1" />
-                    <Text className="text-slate-500 dark:text-slate-400 text-xs flex-1" numberOfLines={1}>
-                        {item.location || "Unknown Location"}
-                    </Text>
-                </View>
-                <Text className="text-slate-400 dark:text-slate-500 text-[10px] mt-1">
-                    {new Date(item.created_at).toDateString()}
-                </Text>
-            </View>
+                                    <View className="flex-row items-center">
+                                        <MapPin size={10} color={isDark ? "#64748b" : "#94a3b8"} className="mr-1" />
+                                        <Text className="text-slate-500 dark:text-slate-400 text-xs flex-1" numberOfLines={1}>
+                                            {item.location || "Unknown Location"}
+                                        </Text>
+                                    </View>
+                                    <Text className="text-slate-400 dark:text-slate-500 text-[10px] mt-1">
+                                        {new Date(item.created_at).toDateString()}
+                                    </Text>
+                                </View>
 
-            <View className="items-end">
-                <Text className="font-black text-slate-900 dark:text-slate-100 text-lg">₹{item.price || 0}</Text>
-                <Text className="text-blue-500 dark:text-blue-400 text-[10px] font-bold">{t('dashboard.view').toUpperCase()}</Text>
-            </View>
-        </TouchableOpacity>
-    )}
-/>
+                                <View className="items-end">
+                                    <Text className="font-black text-slate-900 dark:text-slate-100 text-lg">₹{item.price || 0}</Text>
+                                    <Text className="text-blue-500 dark:text-blue-400 text-[10px] font-bold">{t('dashboard.view').toUpperCase()}</Text>
+                                </View>
+                            </TouchableOpacity>
+                        )}
+                    />
 
                 )}
             </DraggableBottomSheet>
@@ -522,13 +572,13 @@ useEffect(() => {
                 </TouchableOpacity>
             )}
 
-           
+
 
             <LanguageModal
                 visible={showLanguageModal}
                 onClose={() => setShowLanguageModal(false)}
             />
-             {/* --- POPUP (Overlay - Single or Selected) --- */}
+            {/* --- POPUP (Overlay - Single or Selected) --- */}
             {(() => {
                 const jobToShow = viewingJobId ? pendingJobs.find(j => j.id === viewingJobId) : null;
 
