@@ -27,7 +27,12 @@
         "VIBRATE",
         "ACCESS_COARSE_LOCATION",
         "ACCESS_FINE_LOCATION",
-        "ACCESS_BACKGROUND_LOCATION"
+        "ACCESS_BACKGROUND_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_BACKGROUND_LOCATION",
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.FOREGROUND_SERVICE_LOCATION"
       ],
       "config": {
         "googleMaps": {
@@ -80,7 +85,7 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "0c27dd28-94ee-4f6e-99a0-6ca5ab7c13ca"
+        "projectId": "5b71b29a-8b24-48de-b57c-6ab2818acbf6"
       }
     },
     "owner": "mannnavlakha"
