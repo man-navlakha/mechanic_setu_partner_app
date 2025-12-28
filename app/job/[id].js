@@ -1,4 +1,5 @@
-import { Feather, Ionicons } from '@expo/vector-icons';
+import { Feather, Ionicons, MaterialIcons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { CheckCircle, IndianRupee, XCircle } from 'lucide-react-native';
 import { useEffect, useRef, useState } from 'react';
@@ -88,6 +89,14 @@ export default function JobDetailsPage() {
     const [isJobCompleted, setIsJobCompleted] = useState(false);
     const [isJobCancelledState, setIsJobCancelledState] = useState(false);
 
+    // --- JOB WORKFLOW STATES ---
+    const [isNavigating, setIsNavigating] = useState(false);
+    const [hasArrived, setHasArrived] = useState(false);
+
+    // --- ADS STATE ---
+    const [adsData, setAdsData] = useState([]);
+    const [selectedAd, setSelectedAd] = useState(null);
+
     // --- BOTTOM SHEET ANIMATION ---
     const translateY = useSharedValue(SNAP_POINTS.COLLAPSED);
     const context = useSharedValue({ y: 0 });
@@ -167,6 +176,21 @@ export default function JobDetailsPage() {
         return () => { isMounted = false; };
     }, [id, activeJob, isJobCompleted, isJobCancelledState]);
 
+    // --- 1.5 FETCH ADS ---
+    useEffect(() => {
+        const fetchAds = async () => {
+            try {
+                const res = await api.get('/core/map-ads/');
+                if (Array.isArray(res.data)) {
+                    setAdsData(res.data);
+                }
+            } catch (e) {
+                console.log("Error fetching ads:", e);
+            }
+        };
+        fetchAds();
+    }, []);
+
     // --- 2. MAP & ETA UPDATES ---
     useEffect(() => {
         if (!currentJob || !mechanicCoords) return;
@@ -218,6 +242,8 @@ export default function JobDetailsPage() {
             android: `geo:0,0?q=${lat},${lng}(${label})`
         });
         Linking.openURL(url);
+        // Switch purely to "Arriving" state UI
+        setIsNavigating(true);
     };
 
     const submitCompletion = async () => {
@@ -258,6 +284,22 @@ export default function JobDetailsPage() {
         } catch (err) {
             actionsPaused.current = false; // Resume on error
             Alert.alert("Error", "Failed to cancel job.");
+        } finally {
+            setLoadingAction(false);
+        }
+    };
+
+    const handleMechanicArrived = async () => {
+        if (!currentJob?.id) return;
+        setLoadingAction(true);
+        try {
+            // Some backends require an empty object for POST requests to ensure Content-Type headers are set correctly
+            await api.post(`/jobs/MechanicArrived/${currentJob.id}/`, {});
+            Alert.alert("Success", "Customer has been notified that you have arrived.");
+            setHasArrived(true); // Update state to remove map and show completion options
+        } catch (error) {
+            console.error("Mechanic Arrived API Error Detail:", error.response?.data || error.message);
+            Alert.alert("Error", "Failed to notify customer. " + (typeof error.response?.data === 'string' ? error.response.data : ''));
         } finally {
             setLoadingAction(false);
         }
@@ -368,77 +410,109 @@ export default function JobDetailsPage() {
 
             <View className="flex-1 bg-white">
                 {/* --- 1. MAP --- */}
-                <MapView
-                    ref={mapRef}
-                    provider={PROVIDER_GOOGLE}
-                    style={{ flex: 1 }}
-                    customMapStyle={mapStyle}
-                    initialRegion={{
-                        latitude: parseFloat(currentJob.latitude) || 20.59,
-                        longitude: parseFloat(currentJob.longitude) || 78.96,
-                        latitudeDelta: 0.05,
-                        longitudeDelta: 0.05,
-                    }}
-                >
-                    {/* Route */}
-                    {mechanicCoords && currentJob.latitude && (
-                        <Polyline
-                            coordinates={[
-                                { latitude: mechanicCoords.latitude, longitude: mechanicCoords.longitude },
-                                { latitude: parseFloat(currentJob.latitude), longitude: parseFloat(currentJob.longitude) }
-                            ]}
-                            strokeColor="#16a34a"
-                            strokeWidth={3}
-                            lineDashPattern={[10, 10]}
-                        />
-                    )}
+                {/* --- 1. MAP (Only visible before Arrival) --- */}
+                {!hasArrived ? (
+                    <MapView
+                        ref={mapRef}
+                        provider={PROVIDER_GOOGLE}
+                        style={{ flex: 1 }}
+                        customMapStyle={mapStyle}
+                        initialRegion={{
+                            latitude: parseFloat(currentJob.latitude) || 20.59,
+                            longitude: parseFloat(currentJob.longitude) || 78.96,
+                            latitudeDelta: 0.05,
+                            longitudeDelta: 0.05,
+                        }}
+                    >
+                        {/* Route */}
+                        {mechanicCoords && currentJob.latitude && (
+                            <Polyline
+                                coordinates={[
+                                    { latitude: mechanicCoords.latitude, longitude: mechanicCoords.longitude },
+                                    { latitude: parseFloat(currentJob.latitude), longitude: parseFloat(currentJob.longitude) }
+                                ]}
+                                strokeColor="#16a34a"
+                                strokeWidth={3}
+                                lineDashPattern={[10, 10]}
+                            />
+                        )}
 
-                    {/* Customer Marker */}
-                    <Marker coordinate={{ latitude: parseFloat(currentJob.latitude), longitude: parseFloat(currentJob.longitude) }}>
-                        <View className="items-center justify-center">
-                            <View className="bg-indigo-600 p-2 rounded-full border-2 border-white shadow-lg">
-                                <Ionicons name="car" size={20} color="white" />
-                            </View>
-                            <View className="bg-white px-2 py-1 rounded-md mt-1 shadow-sm">
-                                <Text className="text-[10px] font-bold text-gray-700">Customer</Text>
-                            </View>
-                        </View>
-                    </Marker>
-
-                    {/* Mechanic Marker */}
-                    {mechanicCoords && (
-                        <Marker coordinate={mechanicCoords}>
+                        {/* Customer Marker */}
+                        <Marker coordinate={{ latitude: parseFloat(currentJob.latitude), longitude: parseFloat(currentJob.longitude) }}>
                             <View className="items-center justify-center">
-                                <View className="bg-green-600 p-2 rounded-full border-2 border-white shadow-lg">
-                                    <Ionicons name="navigate" size={20} color="white" />
+                                <View className="bg-indigo-600 p-2 rounded-full border-2 border-white shadow-lg">
+                                    <Ionicons name="car" size={20} color="white" />
+                                </View>
+                                <View className="bg-white px-2 py-1 rounded-md mt-1 shadow-sm">
+                                    <Text className="text-[10px] font-bold text-gray-700">Customer</Text>
                                 </View>
                             </View>
                         </Marker>
-                    )}
-                </MapView>
+
+                        {/* Mechanic Marker */}
+                        {mechanicCoords && (
+                            <Marker coordinate={mechanicCoords}>
+                                <View className="items-center justify-center">
+                                    <View className="bg-green-600 p-2 rounded-full border-2 border-white shadow-lg">
+                                        <Ionicons name="navigate" size={20} color="white" />
+                                    </View>
+                                </View>
+                            </Marker>
+                        )}
+
+                        {/* --- ADS MARKERS --- */}
+                        {adsData.map((ad) => (
+                            <Marker
+                                key={`ad-${ad.id}`}
+                                coordinate={{ latitude: ad.latitude, longitude: ad.longitude }}
+                                onPress={() => setSelectedAd(ad)}
+                            >
+                                <View className="bg-white p-0.5 rounded-full border-2 border-amber-400 shadow-lg overflow-hidden" style={{ width: 36, height: 36 }}>
+                                    <Image
+                                        source={{ uri: ad.logo }}
+                                        className="w-full h-full rounded-full"
+                                        resizeMode="cover"
+                                    />
+                                </View>
+                            </Marker>
+                        ))}
+                    </MapView>
+                ) : (
+                    // Placeholder when map is removed
+                    <View className="flex-1 bg-slate-50 items-center pt-24">
+                        <View className="w-32 h-32 bg-green-100 rounded-full items-center justify-center mb-4">
+                            <Ionicons name="location" size={64} color="#16a34a" />
+                        </View>
+                        <Text className="text-2xl font-bold text-slate-900">Arrived at Location</Text>
+                        <Text className="text-slate-500">Map closed to save battery</Text>
+                    </View>
+                )}
 
                 {/* --- 2. HEADER --- */}
-                <SafeAreaView className="absolute top-0 left-0 right-0 z-10 bg-green-600/95 shadow-lg pb-4 pt-2">
-                    <StatusBar barStyle="light-content" backgroundColor="#16a34a" />
-                    <View className="px-4 flex-row items-center pb-2 pt-2">
-                        <TouchableOpacity onPress={() => router.back()} className="mr-3">
-                            <Ionicons name="chevron-back" size={28} color="white" />
-                        </TouchableOpacity>
+                {/* --- 2. HEADER --- */}
+                {!hasArrived && (
+                    <SafeAreaView className="absolute top-0 left-0 right-0 z-10 bg-green-600/95 shadow-lg pb-4 pt-2">
+                        <StatusBar barStyle="light-content" backgroundColor="#16a34a" />
+                        <View className="px-4 flex-row items-center pb-2 pt-2">
+                            <TouchableOpacity onPress={() => router.back()} className="mr-3">
+                                <Ionicons name="chevron-back" size={28} color="white" />
+                            </TouchableOpacity>
 
-                        <View className="flex-1">
-                            <Text className="text-green-100 text-xs font-bold uppercase tracking-wider mb-0.5">
-                                Navigate to Customer
-                            </Text>
-                            <Text className="text-white text-2xl font-extrabold">
-                                {estimatedTime ? `${estimatedTime} mins away` : 'Calculating...'}
-                            </Text>
+                            <View className="flex-1">
+                                <Text className="text-green-100 text-xs font-bold uppercase tracking-wider mb-0.5">
+                                    Navigate to Customer
+                                </Text>
+                                <Text className="text-white text-2xl font-extrabold">
+                                    {estimatedTime ? `${estimatedTime} mins away` : 'Calculating...'}
+                                </Text>
+                            </View>
+
+                            <TouchableOpacity onPress={handleNavigate} className="bg-white/20 p-2.5 rounded-full">
+                                <Ionicons name="navigate-circle" size={32} color="white" />
+                            </TouchableOpacity>
                         </View>
-
-                        <TouchableOpacity onPress={handleNavigate} className="bg-white/20 p-2.5 rounded-full">
-                            <Ionicons name="navigate-circle" size={32} color="white" />
-                        </TouchableOpacity>
-                    </View>
-                </SafeAreaView>
+                    </SafeAreaView>
+                )}
 
                 {/* --- 3. DRAGGABLE SHEET --- */}
                 <GestureDetector gesture={gesture}>
@@ -488,30 +562,57 @@ export default function JobDetailsPage() {
                                 </View>
                             </View>
                             {/* Navigation Button */}
-                            <TouchableOpacity
-                                onPress={handleNavigate}
-                                className="bg-slate-900 flex-row items-center justify-center py-5 rounded-2xl mb-8 shadow-xl shadow-slate-300"
-                            >
-                                <Ionicons name="navigate-circle" size={24} color="white" />
-                                <Text className="text-white font-black text-lg ml-3 uppercase tracking-wide">Start Navigation</Text>
-                            </TouchableOpacity>
-                            {/* Actions Grid */}
-                            <View className="flex-row gap-4 mb-8">
-                                <TouchableOpacity
-                                    onPress={() => setCancelModalVisible(true)}
-                                    className="flex-1 py-4 bg-red-600 rounded-2xl border border-red-200 items-center justify-center"
-                                >
-                                    <Text className="text-white font-black text-lg ml-3 uppercase tracking-wide">Cancel</Text>
-                                </TouchableOpacity>
+                            {/* --- ACTION BUTTONS --- */}
 
+                            {/* PHASE 1: START NAVIGATION */}
+                            {!isNavigating && !hasArrived && (
                                 <TouchableOpacity
-                                    onPress={() => setCompleteModalVisible(true)}
-                                    className="flex-[2] py-4 bg-indigo-600 rounded-2xl shadow-lg shadow-indigo-200 items-center justify-center flex-row"
+                                    onPress={handleNavigate}
+                                    className="bg-slate-900 flex-row items-center justify-center py-5 rounded-2xl mb-8 shadow-xl shadow-slate-300"
                                 >
-                                    <CheckCircle size={20} color="white" style={{ marginRight: 8 }} />
-                                    <Text className="text-white font-bold text-base">Complete Job</Text>
+                                    <Ionicons name="navigate-circle" size={24} color="white" />
+                                    <Text className="text-white font-black text-lg ml-3 uppercase tracking-wide">Start Navigation</Text>
                                 </TouchableOpacity>
-                            </View>
+                            )}
+
+                            {/* PHASE 2: I HAVE ARRIVED */}
+                            {isNavigating && !hasArrived && (
+                                <View className="mb-8">
+                                    <TouchableOpacity
+                                        onPress={handleMechanicArrived}
+                                        className="bg-green-600 flex-row items-center justify-center py-5 rounded-2xl shadow-xl shadow-green-300"
+                                    >
+                                        <Ionicons name="location" size={24} color="white" />
+                                        <Text className="text-white font-black text-lg ml-3 uppercase tracking-wide">I Have Arrived</Text>
+                                    </TouchableOpacity>
+
+                                    {/* Re-open maps small button */}
+                                    <TouchableOpacity onPress={handleNavigate} className="mt-3 bg-white border border-slate-200 py-3 rounded-xl items-center flex-row justify-center">
+                                        <Ionicons name="map-outline" size={16} color="#64748b" />
+                                        <Text className="text-slate-500 font-bold ml-2">Open Maps Again</Text>
+                                    </TouchableOpacity>
+                                </View>
+                            )}
+
+                            {/* PHASE 3: COMPLETE / CANCEL (Only after Arrival) */}
+                            {hasArrived && (
+                                <View className="flex-row gap-4 mb-8">
+                                    <TouchableOpacity
+                                        onPress={() => setCancelModalVisible(true)}
+                                        className="flex-1 py-4 bg-red-600 rounded-2xl border border-red-200 items-center justify-center"
+                                    >
+                                        <Text className="text-white font-black text-lg ml-3 uppercase tracking-wide">Cancel</Text>
+                                    </TouchableOpacity>
+
+                                    <TouchableOpacity
+                                        onPress={() => setCompleteModalVisible(true)}
+                                        className="flex-[2] py-4 bg-indigo-600 rounded-2xl shadow-lg shadow-indigo-200 items-center justify-center flex-row"
+                                    >
+                                        <CheckCircle size={20} color="white" style={{ marginRight: 8 }} />
+                                        <Text className="text-white font-bold text-base">Complete Job</Text>
+                                    </TouchableOpacity>
+                                </View>
+                            )}
 
                             {/* Ads Scroller */}
                             <View className="mb-24">
@@ -681,6 +782,91 @@ export default function JobDetailsPage() {
                 </Modal>
 
             </View>
+
+            {/* --- AD FULL SCREEN POPUP --- */}
+            <Modal
+                animationType="fade"
+                transparent={true}
+                visible={!!selectedAd}
+                onRequestClose={() => setSelectedAd(null)}
+            >
+                <View className="flex-1 justify-center items-center bg-black/80 p-4">
+                    <View className="w-full max-w-sm bg-white dark:bg-slate-800 rounded-3xl overflow-hidden shadow-2xl relative">
+                        {/* Close Button */}
+                        <TouchableOpacity
+                            onPress={() => setSelectedAd(null)}
+                            className="absolute top-4 right-4 z-50 bg-black/20 p-2 rounded-full"
+                        >
+                            <XCircle size={24} color="white" />
+                        </TouchableOpacity>
+
+                        {/* Unique Header Gradient based on Ad Data or Default */}
+                        <LinearGradient
+                            colors={selectedAd?.bgGradient || ['#4f46e5', '#ec4899']}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 1 }}
+                            className="p-8 items-center justify-center pt-12"
+                        >
+                            <View className="bg-white p-2 rounded-2xl shadow-xl mb-4">
+                                <Image
+                                    source={{ uri: selectedAd?.logo }}
+                                    className="w-20 h-20 rounded-xl"
+                                    resizeMode="contain"
+                                />
+                            </View>
+                            <Text className="text-white font-black text-2xl text-center shadow-md">
+                                {selectedAd?.businessName}
+                            </Text>
+                        </LinearGradient>
+
+                        <View className="p-6 items-center">
+                            {/* Offer Section */}
+                            {selectedAd?.offerTitle && (
+                                <View className="mb-6 w-full items-center">
+                                    <View className="bg-red-500 -rotate-2 px-4 py-1 self-center mb-2 shadow-sm">
+                                        <Text className="text-white font-black tracking-widest text-xs uppercase">
+                                            {selectedAd.offerTitle}
+                                        </Text>
+                                    </View>
+
+                                    <Text className="text-slate-500 dark:text-slate-400 text-center font-medium text-sm mb-1">
+                                        {selectedAd.offerSubtitle}
+                                    </Text>
+
+                                    <Text className="text-3xl font-black text-slate-800 dark:text-slate-100 text-center color-primary-600">
+                                        {selectedAd.offerPrice}
+                                    </Text>
+                                </View>
+                            )}
+
+                            {/* Description if no offer details, or secondary text */}
+                            <Text className="text-slate-500 text-center mb-6 leading-5 px-4">
+                                {selectedAd?.description}
+                            </Text>
+
+                            {/* Call To Action */}
+                            <TouchableOpacity
+                                onPress={() => {
+                                    if (selectedAd?.link) Linking.openURL(selectedAd.link);
+                                }}
+                                className="w-full bg-slate-900 dark:bg-slate-700 py-4 rounded-xl flex-row justify-center items-center active:scale-95 transition-transform"
+                                style={{
+                                    shadowColor: "#000",
+                                    shadowOffset: { width: 0, height: 4 },
+                                    shadowOpacity: 0.3,
+                                    shadowRadius: 4.65,
+                                    elevation: 8,
+                                }}
+                            >
+                                <Text className="text-white font-bold text-lg mr-2">
+                                    View Offer Now
+                                </Text>
+                                <MaterialIcons name="arrow-forward" size={24} color="white" />
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </View>
+            </Modal>
         </View>
     );
 }

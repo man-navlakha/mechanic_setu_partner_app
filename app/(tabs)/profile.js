@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Haptics from 'expo-haptics';
 import { useFocusEffect, useRouter } from 'expo-router';
 import {
     ArrowLeft,
@@ -71,6 +72,86 @@ export default function ProfileScreen() {
     }, []);
 
     // --- 2. ACTIONS ---
+    const [tapCount, setTapCount] = useState(0);
+    const [showAdminUI, setShowAdminUI] = useState(false); // Local toggle on Profile page
+
+    // Check if Global Developer Mode is enabled (from Settings)
+    useFocusEffect(
+        useCallback(() => {
+            const checkGlobalAdmin = async () => {
+                const mode = await AsyncStorage.getItem('admin_mode');
+                setIsAdmin(mode === 'true');
+            };
+            checkGlobalAdmin();
+        }, [])
+    );
+
+    const handleVersionTap = () => {
+        // Only allow toggling if Global Admin Mode is enabled in Settings
+        if (!isAdmin) return;
+
+        const newCount = tapCount + 1;
+        if (newCount >= 7) {
+            setShowAdminUI(!showAdminUI);
+            setTapCount(0);
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            Alert.alert(showAdminUI ? "Hidden Features Hidden" : "Hidden Features Visible",
+                showAdminUI ? "" : "Admin buttons are now visible below.");
+        } else {
+            setTapCount(newCount);
+        }
+    };
+
+    const createAd = async () => {
+        const newAdData = {
+            businessName: "Pixel Classes",
+            logo: "https://ik.imagekit.io/pxc/pixel%20class%20fav%20w-02.png",
+            link: "https://pixelclass.netlify.app/",
+            latitude: 23.023934,
+            longitude: 72.570247,
+            description: "Learn Coding from Experts!",
+            offerTitle: "OFFER OFFER OFFER",
+            offerSubtitle: "Get Full Stack Web Development Course at",
+            offerPrice: "just ₹5000/- only",
+            bgGradient: ["#ff9a9e", "#fad0c4"]
+        };
+
+        try {
+            const response = await api.post('/core/map-ads/', newAdData);
+            console.log("Ad Created Successfully:", response.data);
+            Alert.alert("Success", "Ad Posted Successfully!");
+        } catch (error) {
+            console.error("Full Error Object:", error);
+
+            let errorMessage = "Failed to post ad.";
+
+            if (error.response) {
+                // The request was made and the server responded with a status code
+                // that falls out of the range of 2xx
+                console.error("Response Data:", error.response.data);
+                console.error("Response Status:", error.response.status);
+
+                if (typeof error.response.data === 'string') {
+                    // Likely HTML error page (500 or 403 debug page)
+                    // Extract basic info or just show status
+                    errorMessage = `Server Error (${error.response.status}). Check console for details.`;
+                    if (error.response.status === 403) errorMessage = "Permission Denied (403). Are you an admin?";
+                    if (error.response.status === 500) errorMessage = "Internal Server Error (500).";
+                } else {
+                    errorMessage = error.response.data?.detail || error.message;
+                }
+            } else if (error.request) {
+                // The request was made but no response was received
+                console.error("No Response:", error.request);
+                errorMessage = "Network Error: No response from server.";
+            } else {
+                errorMessage = error.message;
+            }
+
+            Alert.alert("Error", errorMessage);
+        }
+    };
+
     const handleLogout = async () => {
         Alert.alert(t('profile.logout'), t('profile.logoutConfirm'), [
             { text: t('profile.cancel'), style: "cancel" },
@@ -198,15 +279,41 @@ export default function ProfileScreen() {
                 onClick={() => setActiveSection('jobHistory')}
             />
 
-            {isAdmin && (
-                <MenuCard
-                    title="Verify Mechanics"
-                    subtitle="Admin Panel"
-                    icon={<Users size={24} color={isDark ? "#fca5a5" : "#ef4444"} />}
-                    color="bg-red-50"
-                    darkColor="bg-red-900/30"
-                    onClick={() => router.push('/mechanic-verification')}
-                />
+            {/* VERSION FOOTER WITH HIDDEN ADMIN ACCESS */}
+            <TouchableOpacity
+                activeOpacity={1}
+                onPress={handleVersionTap}
+                className="mb-24 pb-12 items-center"
+            >
+                <Text className="text-slate-400 dark:text-slate-600 text-xs font-semibold">
+                    Version 1.6.3
+                </Text>
+            </TouchableOpacity>
+
+            {/* HIDDEN ADMIN ACCESS */}
+            {showAdminUI && (
+                <View className="mt-4 px-4 items-center">
+                    <TouchableOpacity
+                        onPress={createAd}
+                        className="bg-purple-100 dark:bg-purple-900/30 px-6 py-3 rounded-full border border-purple-200 dark:border-purple-800 flex-row items-center active:bg-purple-200 dark:active:bg-purple-900/50"
+                    >
+                        <CheckCircle size={18} color={isDark ? "#d8b4fe" : "#9333ea"} className="mr-2" />
+                        <Text className="text-purple-700 dark:text-purple-300 font-bold text-sm">
+                            POST TEST AD (ADMIN)
+                        </Text>
+                    </TouchableOpacity>
+
+                    {/* ALSO SHOW EXISTING ADMIN VERIFY BUTTON IF ENABLED */}
+                    <TouchableOpacity
+                        onPress={() => router.push('/mechanic-verification')}
+                        className="mt-4 bg-red-50 dark:bg-red-900/30 px-6 py-3 rounded-full border border-red-200 dark:border-red-800 flex-row items-center active:bg-red-200 dark:active:bg-red-900/50"
+                    >
+                        <Users size={18} color={isDark ? "#fca5a5" : "#ef4444"} className="mr-2" />
+                        <Text className="text-red-700 dark:text-red-300 font-bold text-sm">
+                            VERIFY MECHANICS
+                        </Text>
+                    </TouchableOpacity>
+                </View>
             )}
 
             <TouchableOpacity

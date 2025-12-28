@@ -25,7 +25,7 @@ export default function SettingsScreen() {
         setTapCount(newCount);
         if (newCount === 7) {
             await AsyncStorage.setItem('admin_mode', 'true');
-            Alert.alert("Developer Mode", "You are now a developer! Admin features enabled.");
+            Alert.alert("Developer Mode", "You are now a developer! Hidden admin features are enabled in Profile.");
         }
     };
 

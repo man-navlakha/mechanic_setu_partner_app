@@ -16,7 +16,7 @@ import Animated, {
     withTiming
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import adsData from '../assets/data/ads.json';
+
 import DraggableBottomSheet from '../components/DraggableBottomSheet';
 import JobNotificationPopup from '../components/JobNotificationPopup';
 import LanguageModal from '../components/LanguageModal';
@@ -126,6 +126,7 @@ export default function Dashboard() {
     const [selectedAd, setSelectedAd] = useState(null); // State for selected Ad Popup
     const prevPendingLength = useRef(0);
     const hasAskedOverlay = useRef(false);
+    const [adsData, setAdsData] = useState([]);
 
     useEffect(() => {
         const verifyOverlay = async () => {
@@ -247,8 +248,20 @@ export default function Dashboard() {
     // 3. FETCH DATA
     useEffect(() => {
         fetchJobHistory();
+        fetchAds();
         if (isOnline && location) fetchNearbyJobs();
     }, [isOnline, location]);
+
+    const fetchAds = async () => {
+        try {
+            const res = await api.get('/core/map-ads/');
+            if (Array.isArray(res.data)) {
+                setAdsData(res.data);
+            }
+        } catch (e) {
+            console.log("Error fetching ads:", e);
+        }
+    };
 
     const fetchNearbyJobs = async () => {
         if (!location) return;

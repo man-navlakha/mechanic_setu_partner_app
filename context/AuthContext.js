@@ -16,6 +16,18 @@ export function AuthProvider({ children }) {
 
     useEffect(() => {
         checkLoginStatus();
+        // Fallback: If 3 seconds pass and we are still loading, force stop loading.
+        // This prevents the "stuck on splash screen" issue on slow networks or bugs.
+        const timer = setTimeout(() => {
+            setLoading((prevLoading) => {
+                if (prevLoading) {
+                    console.warn("[Auth] Safety timeout triggered: Forcing App Load");
+                    return false;
+                }
+                return prevLoading;
+            });
+        }, 3000);
+        return () => clearTimeout(timer);
     }, []);
 
     const checkLoginStatus = async () => {
