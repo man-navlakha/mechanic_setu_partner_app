@@ -96,7 +96,7 @@ export const WebSocketProvider = ({ children }) => {
             // Read from the Ref directly. This DOES NOT trigger re-renders.
             if (latestCoordsRef.current && socketRef.current?.readyState === WebSocket.OPEN) {
                 const locationData = {
-                    type: 'mechanic_location_update',
+                    type: 'location_update',
                     ...latestCoordsRef.current,
                     job_id: jobRef.current?.id || null
                 };
@@ -537,13 +537,38 @@ export const WebSocketProvider = ({ children }) => {
                     return prev;
                 });
                 break;
+            // --- ADD THESE NEW CASES ---
+            case "job_taken":
+            case "job_expired":
+                console.log(`[WS] Removing job ${data.job_id} (Reason: ${data.type})`);
 
-            case "mechanic_location_update":
+                // Remove the job from the pending list
+                setPendingJobs(prev => {
+                    const exists = prev.find(j => j.id == data.job_id);
+                    if (exists) {
+                        // Stop ring if this was the only/ringing job
+                        if (autoRejectTimers.current.has(exists.id)) {
+                            clearTimeout(autoRejectTimers.current.get(exists.id));
+                            autoRejectTimers.current.delete(exists.id);
+                        }
+                        const filtered = prev.filter(j => j.id != data.job_id);
+                        if (filtered.length === 0) stopRing();
+                        return filtered;
+                    }
+                    return prev;
+                });
+
+                // Remove notification if it exists
+                if (notifee) notifee.cancelNotification(`job_alert_${data.job_id}`);
+                break;
+            // ---------------------------
+
+            case "location_update":
                 console.log("[WS] ✅ Location update acknowledged by server");
                 // This is an acknowledgment from the server that location was received
                 // The server should be broadcasting this to the CUSTOMER's WebSocket, not back to the mechanic
                 // If we're receiving this, it means server configuration might be wrong
-                console.log("[WS] ⚠️ WARNING: Mechanic should not receive mechanic_location_update messages!");
+                console.log("[WS] ⚠️ WARNING: Mechanic should not receive location_update messages!");
                 console.log("[WS] ⚠️ This message should only be sent to CUSTOMERS tracking the mechanic");
                 break;
 
