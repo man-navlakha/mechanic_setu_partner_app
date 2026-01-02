@@ -8,7 +8,7 @@ import { Bell, Globe, HelpCircle, History, MapPin, Navigation, User, VolumeOff, 
 import { useColorScheme } from 'nativewind';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, Alert, Image, Linking, Modal, Platform, Pressable, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Image, Linking, Modal, Platform, Pressable, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import Animated, {
     useAnimatedStyle,
@@ -18,12 +18,10 @@ import Animated, {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import DraggableBottomSheet from '../components/DraggableBottomSheet';
-import JobNotificationPopup from '../components/JobNotificationPopup';
 import LanguageModal from '../components/LanguageModal';
 import { useAuth } from '../context/AuthContext';
 import { useWebSocket } from '../context/WebSocketContext';
 import api from '../utils/api';
-import { checkOverlayPermission, requestOverlayPermission } from '../utils/OverlayPermission';
 const TOGGLE_WIDTH = 140; // Increased width for text
 
 // Modern Light Map Style
@@ -128,37 +126,26 @@ export default function Dashboard() {
     const hasAskedOverlay = useRef(false);
     const [adsData, setAdsData] = useState([]);
 
-    useEffect(() => {
-        const verifyOverlay = async () => {
-            if (hasAskedOverlay.current) return;
 
-            const isGranted = await checkOverlayPermission();
-            if (!isGranted && isOnline) {
-                hasAskedOverlay.current = true;
-                Alert.alert(
-                    "Permission Required",
-                    "To show job alerts while using other apps, please enable 'Display over other apps' in settings.\n\n(If you have already enabled this, you can ignore this message.)",
-                    [
-                        { text: "Ignore", style: "cancel" },
-                        { text: "Open Settings", onPress: requestOverlayPermission }
-                    ]
-                );
-            }
-        };
+    // Auto-redirect to pending-jobs for ANY jobs (only once)
+    const hasNavigated = useRef(false);
 
-        if (isOnline) {
-            verifyOverlay();
-        }
-    }, [isOnline]);
-    // Auto-open logic for new jobs
     useEffect(() => {
         const currentLength = pendingJobs.length;
-        if (prevPendingLength.current === 0 && currentLength > 0) {
-            setViewingJobId(pendingJobs[0].id);
+
+        // If ANY jobs exist AND we haven't navigated yet
+        if (currentLength > 0 && !hasNavigated.current) {
+            hasNavigated.current = true;
+            router.push('/pending-jobs');
+            setViewingJobId(null); // Clear any popup (hiding popup for now)
+            return;
         }
-        if (viewingJobId && !pendingJobs.find(j => j.id === viewingJobId)) {
-            setViewingJobId(null);
+
+        // Reset navigation flag when no jobs
+        if (currentLength === 0) {
+            hasNavigated.current = false;
         }
+
         prevPendingLength.current = currentLength;
     }, [pendingJobs]);
 
@@ -267,8 +254,8 @@ export default function Dashboard() {
         if (!location) return;
         // Mock Data for UI (Replace with API)
         setNearbyJobs([
-            { id: 1, lat: location.latitude + 0.002, lng: location.longitude + 0.002, type: "Flat Tire", price: 500 },
-            { id: 2, lat: location.latitude - 0.003, lng: location.longitude - 0.001, type: "Battery Dead", price: 700 },
+            { id: 1, lat: location.latitude + 0.002, lng: location.longitude + 0.002, type: "test: Flat Tire", price: 120 },
+            { id: 2, lat: location.latitude - 0.003, lng: location.longitude - 0.001, type: "test: Battery Dead", price: 300 },
         ]);
     };
 
@@ -278,7 +265,7 @@ export default function Dashboard() {
             const history = res.data.job_history || [];
             const totalEarned = history.reduce((sum, j) => sum + (parseFloat(j.price) || 0), 0);
             setEarnings({ total: totalEarned, count: history.length });
-            const validPast = history.filter(j => j.latitude && j.longitude && (j.status === 'ACCEPTED' || j.status === 'COMPLETED'));
+            const validPast = history.filter(j => j.latitude && j.longitude && (j.status === 'ACCEPTED' || j.status === 'ARRIVED' || j.status === 'WORKING' || j.status === 'ACTIVE'));
             setPastJobs(validPast);
         } catch (e) { console.log(e); }
     };
@@ -321,13 +308,29 @@ export default function Dashboard() {
                         </View>
                     </Marker>
                 ))}
-                {pastJobs.map(j => (
-                    <Marker key={`past-${j.id}`} coordinate={{ latitude: parseFloat(j.latitude), longitude: parseFloat(j.longitude) }} opacity={0.6}>
-                        <View className="bg-slate-200 p-1.5 rounded-full border border-slate-400">
-                            <History size={14} color="#64748b" />
-                        </View>
-                    </Marker>
-                ))}
+
+                {/* --- PENDING / INCOMING JOBS MARKERS --- */}
+                {pendingJobs.map(j => {
+                    // Ensure we have valid coordinates
+                    const lat = parseFloat(j.latitude);
+                    const lng = parseFloat(j.longitude);
+                    if (!lat || !lng) return null;
+
+                    return (
+                        <Marker
+                            key={`pending-${j.id}`}
+                            coordinate={{ latitude: lat, longitude: lng }}
+                            title={j.problem}
+                            onPress={() => setViewingJobId(j.id)}
+                            zIndex={100} // Ensure these sit on top
+                        >
+                            <View className="bg-red-600 p-3 rounded-full border-2 border-white shadow-lg">
+                                <Wrench size={20} color="white" />
+                            </View>
+                        </Marker>
+                    );
+                })}
+
                 {/* --- ADS MARKERS (Click to Open Popup) --- */}
                 {adsData.map((ad) => (
                     <Marker
@@ -465,8 +468,8 @@ export default function Dashboard() {
             {/* --- BOTTOM SHEET (Draggable) --- */}
             <DraggableBottomSheet
                 initialIndex={0}
-                snapPoints={['25%', '45%', '85%']}
-                className="mt-20 bottom-0"
+                snapPoints={['30%', '45%', '85%']}
+                className="mt-20 bottom-2"
                 useScrollView={false} // <--- ADD THIS
             >
                 {/* Status Display Row */}
@@ -557,11 +560,44 @@ export default function Dashboard() {
                                             {/* ENSURE THIS SAYS 'item.problem', NOT 'job.problem' */}
                                             {item.problem}
                                         </Text>
-                                        <View className={`px-2 py-0.5 rounded ml-2 ${item.status === 'COMPLETED' ? 'bg-green-100 dark:bg-green-900/30' : 'bg-slate-200 dark:bg-slate-700'}`}>
-                                            <Text className={`text-[10px] font-bold ${item.status === 'COMPLETED' ? 'text-green-700 dark:text-green-400' : 'text-slate-500 dark:text-slate-400'}`}>
-                                                {item.status}
-                                            </Text>
-                                        </View>
+                                        {/* Redesigned Status Badge */}
+                                        {(() => {
+                                            const status = item.status;
+                                            let bgClass = "bg-slate-100 dark:bg-slate-800";
+                                            let textClass = "text-slate-500 dark:text-slate-400";
+
+                                            switch (status) {
+                                                case 'COMPLETED':
+                                                    bgClass = "bg-green-100 dark:bg-green-500/20";
+                                                    textClass = "text-green-700 dark:text-green-400";
+                                                    break;
+                                                case 'ACTIVE':
+                                                case 'WORKING':
+                                                case 'ARRIVED':
+                                                case 'PICKED':
+                                                    bgClass = "bg-blue-100 dark:bg-blue-500/20";
+                                                    textClass = "text-blue-700 dark:text-blue-400";
+                                                    break;
+                                                case 'PENDING':
+                                                    bgClass = "bg-amber-100 dark:bg-amber-500/20";
+                                                    textClass = "text-amber-700 dark:text-amber-400";
+                                                    break;
+                                                case 'CANCELLED':
+                                                case 'REJECTED':
+                                                case 'EXPIRED':
+                                                    bgClass = "bg-red-100 dark:bg-red-500/20";
+                                                    textClass = "text-red-700 dark:text-red-400";
+                                                    break;
+                                            }
+
+                                            return (
+                                                <View className={`px-2.5 py-1 rounded-md ml-2 ${bgClass}`}>
+                                                    <Text className={`text-[10px] font-bold tracking-wide uppercase ${textClass}`}>
+                                                        {status}
+                                                    </Text>
+                                                </View>
+                                            );
+                                        })()}
                                     </View>
 
                                     <View className="flex-row items-center">
@@ -695,7 +731,8 @@ export default function Dashboard() {
                 visible={showLanguageModal}
                 onClose={() => setShowLanguageModal(false)}
             />
-            {/* --- POPUP (Overlay - Single or Selected) --- */}
+            {/* --- POPUP (Overlay - Temporarily Hidden) --- */}
+            {/* 
             {(() => {
                 const jobToShow = viewingJobId ? pendingJobs.find(j => j.id === viewingJobId) : null;
 
@@ -721,6 +758,7 @@ export default function Dashboard() {
                 }
                 return null;
             })()}
+            */}
         </View >
 
     );

@@ -65,8 +65,11 @@
         "wsOffline": "Offline",
         "wsReconnect": "Tap to Reconnect",
         "incomingRequests": "Incoming Requests",
+        "incomingRequest": "Incoming Request",
+        "reviewAndAccept": "Review and accept",
         "recentJobs": "Recent Activity",
-        "noRecentJobs": "No recent jobs found."
+        "noRecentJobs": "No recent jobs found.",
+        "viewOffer": "View Offer Now"
     },
     "verify": {
         "Verification": "Verification",

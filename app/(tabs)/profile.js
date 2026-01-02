@@ -19,6 +19,7 @@ import { useColorScheme } from 'nativewind';
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, Alert, Image, Linking, ScrollView, StatusBar, Text, TouchableOpacity, View } from 'react-native';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import LanguageModal from '../../components/LanguageModal';
 import { useAuth } from '../../context/AuthContext';
@@ -214,6 +215,68 @@ export default function ProfileScreen() {
 
     // --- 4. SECTIONS ---
 
+    const WeeklyChart = ({ history }) => {
+        // 1. Process Data for Last 7 Days
+        const chartData = [];
+        const today = new Date();
+        const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+        for (let i = 6; i >= 0; i--) {
+            const d = new Date();
+            d.setDate(today.getDate() - i);
+            const dateStr = d.toISOString().split('T')[0];
+            const dayLabel = days[d.getDay()];
+
+            // Filter jobs for this date (match YYYY-MM-DD)
+            const dayTotal = history
+                .filter(j => j.created_at && j.created_at.startsWith(dateStr) && j.status === 'COMPLETED')
+                .reduce((sum, j) => sum + (parseFloat(j.price) || 0), 0);
+
+            chartData.push({ day: dayLabel, value: dayTotal });
+        }
+
+        const maxValue = Math.max(...chartData.map(d => d.value), 100); // Normalize, min 100 to avoid div/0
+
+        return (
+            <View className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-100 dark:border-slate-700 mb-6 shadow-sm">
+                <View className="flex-row justify-between items-center mb-6">
+                    <View>
+                        <Text className="text-lg font-bold text-slate-900 dark:text-slate-100">Weekly Earnings</Text>
+                        <Text className="text-slate-400 dark:text-slate-500 text-xs text-bold">Last 7 Days</Text>
+                    </View>
+                </View>
+
+                <View className="flex-row justify-between items-end h-32 px-1">
+                    {chartData.map((item, index) => {
+                        const heightPct = (item.value / maxValue) * 100;
+                        return (
+                            <View key={index} className="items-center w-8">
+                                {/* Tooltip Value */}
+                                {item.value > 0 && (
+                                    <Text className="text-[9px] text-slate-400 dark:text-slate-500 mb-1 font-bold">
+                                        {item.value >= 1000 ? (item.value / 1000).toFixed(1) + 'k' : item.value}
+                                    </Text>
+                                )}
+                                {/* Animated Bar */}
+                                <Animated.View
+                                    entering={FadeInDown.delay(index * 100).springify()}
+                                    style={{
+                                        height: `${Math.max(heightPct, 4)}%`, // Minimum height 4%
+                                        width: '100%',
+                                        borderTopLeftRadius: 6,
+                                        borderTopRightRadius: 6,
+                                    }}
+                                    className={`w-full ${item.value > 0 ? 'bg-blue-600 dark:bg-blue-500' : 'bg-slate-100 dark:bg-slate-700'}`}
+                                />
+                                <Text className="mt-2 text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase">{item.day}</Text>
+                            </View>
+                        );
+                    })}
+                </View>
+            </View>
+        );
+    };
+
     const HomeOverview = () => (
         <View>
             {/* Profile Header Card */}
@@ -378,6 +441,7 @@ export default function ProfileScreen() {
         const stats = historyData?.statistics;
         return (
             <View>
+                <WeeklyChart history={historyData?.job_history || []} />
                 <View className="flex-row flex-wrap justify-between">
                     <View className="w-[48%] bg-green-50 dark:bg-green-900/30 p-5 rounded-2xl border border-green-100 dark:border-green-800 mb-4 items-center">
                         <DollarSign size={28} color={isDark ? "#4ade80" : "#16a34a"} className="mb-2" />

@@ -37,6 +37,7 @@ export const WebSocketProvider = ({ children }) => {
     const appState = useRef(AppState.currentState);
     const soundRef = useRef(null);
     const processedJobIds = useRef(new Set()); // Track accepted/pending IDs to avoid duplicate alerts
+    const autoRejectTimers = useRef(new Map()); // Track auto-reject timers
     const currentSoundId = useRef(0); // For handling async sound loading race conditions
 
     // --- 1. INITIALIZATION (Only when user is logged in) ---
@@ -78,6 +79,8 @@ export const WebSocketProvider = ({ children }) => {
             if (unsubscribeNotifee) unsubscribeNotifee();
             disconnectWebSocket();
             stopRing();
+            autoRejectTimers.current.forEach(clearTimeout);
+            autoRejectTimers.current.clear();
         };
     }, [user]); // Re-run when user changes (login/logout)
     useEffect(() => {
@@ -92,11 +95,20 @@ export const WebSocketProvider = ({ children }) => {
         const interval = setInterval(() => {
             // Read from the Ref directly. This DOES NOT trigger re-renders.
             if (latestCoordsRef.current && socketRef.current?.readyState === WebSocket.OPEN) {
-                socketRef.current.send(JSON.stringify({
-                    type: 'location_update',
+                const locationData = {
+                    type: 'mechanic_location_update',
                     ...latestCoordsRef.current,
                     job_id: jobRef.current?.id || null
-                }));
+                };
+                console.log("[WS] 📤 SENDING LOCATION UPDATE:", JSON.stringify(locationData, null, 2));
+                socketRef.current.send(JSON.stringify(locationData));
+            } else {
+                if (!latestCoordsRef.current) {
+                    console.log("[WS] ⚠️ No location data available to send");
+                }
+                if (socketRef.current?.readyState !== WebSocket.OPEN) {
+                    console.log("[WS] ⚠️ WebSocket not connected, skipping location update");
+                }
             }
         }, 2500);
         return () => clearInterval(interval);
@@ -414,9 +426,15 @@ export const WebSocketProvider = ({ children }) => {
 
             ws.onmessage = (event) => {
                 try {
+                    console.log("[WS] 📥 RAW MESSAGE RECEIVED:", event.data);
                     const data = JSON.parse(event.data);
+                    console.log("[WS] 📦 PARSED MESSAGE:", JSON.stringify(data, null, 2));
+                    console.log("[WS] 🔖 MESSAGE TYPE:", data.type);
                     handleMessage(data);
-                } catch (e) { console.error(e); }
+                } catch (e) {
+                    console.error("[WS] ❌ MESSAGE PARSE ERROR:", e);
+                    console.error("[WS] ❌ FAILED RAW DATA:", event.data);
+                }
             };
 
             ws.onclose = () => {
@@ -480,6 +498,15 @@ export const WebSocketProvider = ({ children }) => {
                     // If app is already open, show your internal JobNotificationPopup.js
                     playNotificationSound();
                 }
+
+                // --- Auto Reject Timer (30 seconds) ---
+                if (!autoRejectTimers.current.has(data.service_request.id)) {
+                    const timerId = setTimeout(() => {
+                        console.log(`[WS] Auto-rejecting job ${data.service_request.id} after 30s`);
+                        rejectJob(data.service_request.id);
+                    }, 30000);
+                    autoRejectTimers.current.set(data.service_request.id, timerId);
+                }
                 break;
 
             case "job_status_update":
@@ -497,6 +524,11 @@ export const WebSocketProvider = ({ children }) => {
                 setPendingJobs(prev => {
                     const exists = prev.find(j => j.id == data.job_id);
                     if (exists) {
+                        // Clear timer if it's being removed/updated externally
+                        if (autoRejectTimers.current.has(exists.id)) {
+                            clearTimeout(autoRejectTimers.current.get(exists.id));
+                            autoRejectTimers.current.delete(exists.id);
+                        }
                         // Remove it
                         const filtered = prev.filter(j => j.id != data.job_id);
                         if (filtered.length === 0) stopRing();
@@ -505,11 +537,30 @@ export const WebSocketProvider = ({ children }) => {
                     return prev;
                 });
                 break;
+
+            case "mechanic_location_update":
+                console.log("[WS] ✅ Location update acknowledged by server");
+                // This is an acknowledgment from the server that location was received
+                // The server should be broadcasting this to the CUSTOMER's WebSocket, not back to the mechanic
+                // If we're receiving this, it means server configuration might be wrong
+                console.log("[WS] ⚠️ WARNING: Mechanic should not receive mechanic_location_update messages!");
+                console.log("[WS] ⚠️ This message should only be sent to CUSTOMERS tracking the mechanic");
+                break;
+
+            default:
+                console.log(`[WS] ⚠️ UNHANDLED MESSAGE TYPE: "${data.type}"`);
+                console.log("[WS] 📄 FULL MESSAGE DATA:", JSON.stringify(data, null, 2));
+                break;
         }
     };
 
     // --- 6. ACTIONS ---
     const acceptJob = async (jobId) => {
+        // Clear auto-reject timer
+        if (autoRejectTimers.current.has(jobId)) {
+            clearTimeout(autoRejectTimers.current.get(jobId));
+            autoRejectTimers.current.delete(jobId);
+        }
         // Stop sound if it's the last one, or just stop it regardless?
         // User might want to keep others pending.
         // But accepting one usually means you are busy.
@@ -556,6 +607,12 @@ export const WebSocketProvider = ({ children }) => {
 
     const rejectJob = (jobId) => {
         console.log(`[JOB] Rejecting Job ID: ${jobId}`);
+
+        // Clear auto-reject timer
+        if (autoRejectTimers.current.has(jobId)) {
+            clearTimeout(autoRejectTimers.current.get(jobId));
+            autoRejectTimers.current.delete(jobId);
+        }
         stopRing(); // Stop ring immediately on reject
 
         setPendingJobs(prev => {

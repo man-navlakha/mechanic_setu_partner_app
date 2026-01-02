@@ -65,8 +65,11 @@
         "wsOffline": "ઑફલાઇન",
         "wsReconnect": "ફરીથી જોડાવા માટે ટેપ કરો",
         "incomingRequests": "આવનારી વિનંતીઓ",
+        "incomingRequest": "આવનારી વિનંતી",
+        "reviewAndAccept": "સમીક્ષા કરો અને સ્વીકારો",
         "recentJobs": "તાજેતરની પ્રવૃત્તિ",
-        "noRecentJobs": "કોઈ તાજેતરના કામ મળ્યા નથી."
+        "noRecentJobs": "કોઈ તાજેતરના કામ મળ્યા નથી.",
+        "viewOffer": "ઓફર હવે જુઓ"
     },
     "verify": {
         "verification": "ચકાસણી",
