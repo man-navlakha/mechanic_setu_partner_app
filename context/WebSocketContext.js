@@ -95,19 +95,26 @@ export const WebSocketProvider = ({ children }) => {
         const interval = setInterval(() => {
             // Read from the Ref directly. This DOES NOT trigger re-renders.
             if (latestCoordsRef.current && socketRef.current?.readyState === WebSocket.OPEN) {
+                const jobId = jobRef.current?.id;
                 const locationData = {
                     type: 'location_update',
                     ...latestCoordsRef.current,
-                    job_id: jobRef.current?.id || null
+                    job_id: jobId ? Number(jobId) : null
                 };
-                console.log("[WS] 📤 SENDING LOCATION UPDATE:", JSON.stringify(locationData, null, 2));
+
+                if (jobId) {
+                    console.log(`[WS] 📤 SENDING LOCATION (Job Active: ${jobId}):`, JSON.stringify(locationData, null, 2));
+                } else {
+                    console.log("[WS] 📤 SENDING BACKGROUND LOCATION (No Active Job):", JSON.stringify(locationData, null, 2));
+                }
+
                 socketRef.current.send(JSON.stringify(locationData));
             } else {
                 if (!latestCoordsRef.current) {
-                    console.log("[WS] ⚠️ No location data available to send");
+                    console.log("[WS] ⚠️ HEARTBEAT: No location data available");
                 }
                 if (socketRef.current?.readyState !== WebSocket.OPEN) {
-                    console.log("[WS] ⚠️ WebSocket not connected, skipping location update");
+                    console.log("[WS] ⚠️ HEARTBEAT: WebSocket not connected (ReadyState: " + socketRef.current?.readyState + ")");
                 }
             }
         }, 2500);
@@ -693,8 +700,12 @@ export const WebSocketProvider = ({ children }) => {
         connectWebSocket();
     };
 
+    const setWorkingStatus = async () => {
+        await updateStatus("WORKING");
+    };
+
     const value = React.useMemo(() => ({
-        isOnline, setIsOnline, connectionStatus, job, pendingJobs, acceptJob, rejectJob, completeJob, cancelJob, reconnect, stopRing, isRinging
+        isOnline, setIsOnline, connectionStatus, job, pendingJobs, acceptJob, rejectJob, completeJob, cancelJob, reconnect, stopRing, isRinging, updateStatus, setWorkingStatus
     }), [isOnline, connectionStatus, job, pendingJobs, isRinging]);
 
     return (

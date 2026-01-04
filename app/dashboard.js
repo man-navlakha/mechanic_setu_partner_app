@@ -48,7 +48,7 @@ const darkMapStyle = [
 ];
 
 // Re-integrated OnlineToggle Component
-function OnlineToggle({ isOnline, setIsOnline }) {
+function OnlineToggle({ isOnline, setIsOnline, status }) {
     const { t } = useTranslation();
     // 0 = Offline (Left), 1 = Online (Right)
     const progress = useSharedValue(isOnline ? 1 : 0);
@@ -58,13 +58,21 @@ function OnlineToggle({ isOnline, setIsOnline }) {
         progress.value = withTiming(isOnline ? 1 : 0, { duration: 300 });
     }, [isOnline]);
 
-    const animatedStyle = useAnimatedStyle(() => ({
-        backgroundColor: progress.value === 1
-            ? '#16a34a' // Green
-            : '#64748b', // Grey
-    }));
+    const animatedStyle = useAnimatedStyle(() => {
+        let bgColor = '#64748b'; // Default Grey
+
+        if (progress.value === 1) {
+            bgColor = status === 'WORKING' ? '#2563eb' : '#16a34a'; // Blue if Working, Green if Online
+        }
+
+        return {
+            backgroundColor: bgColor,
+        };
+    });
 
     const handleToggle = () => {
+        if (status === 'WORKING') return; // Disable toggle while working
+
         const next = !isOnline;
         setIsOnline(next);
         Haptics.impactAsync(
@@ -80,7 +88,7 @@ function OnlineToggle({ isOnline, setIsOnline }) {
                 style={[
                     {
                         width: TOGGLE_WIDTH,
-                        paddingVertical: 8, // Slightly taller
+                        paddingVertical: 8,
                         paddingHorizontal: 6,
                         borderRadius: 999,
                         flexDirection: 'row',
@@ -95,7 +103,7 @@ function OnlineToggle({ isOnline, setIsOnline }) {
                 ]}
             >
                 <MaterialIcons
-                    name={isOnline ? 'check-circle' : 'power-settings-new'}
+                    name={status === 'WORKING' ? 'navigation' : (isOnline ? 'check-circle' : 'power-settings-new')}
                     size={22}
                     color="#fff"
                 />
@@ -106,7 +114,7 @@ function OnlineToggle({ isOnline, setIsOnline }) {
                     fontSize: 16,
                     marginLeft: 8
                 }}>
-                    {isOnline ? (t('dashboard.on') || 'ONLINE') : (t('dashboard.off') || 'OFFLINE')}
+                    {status === 'WORKING' ? (t('dashboard.working') || 'WORKING') : (isOnline ? (t('dashboard.on') || 'ONLINE') : (t('dashboard.off') || 'OFFLINE'))}
                 </Text>
             </Animated.View>
         </Pressable>
@@ -359,7 +367,7 @@ export default function Dashboard() {
                     <View className="mx-4 flex-row justify-between items-center">
 
                         {/* USE THE ANIMATED TOGGLE COMPONENT HERE */}
-                        <OnlineToggle isOnline={isOnline} setIsOnline={setIsOnline} />
+                        <OnlineToggle isOnline={isOnline} setIsOnline={setIsOnline} status={job?.status} />
 
                         {/* Right: Icon Buttons */}
                         <View className="flex-row items-center">

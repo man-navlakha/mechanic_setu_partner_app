@@ -65,7 +65,7 @@ export default function JobDetailsPage() {
     const mapRef = useRef(null);
 
     // Context Data
-    const { job: activeJob, completeJob, cancelJob } = useWebSocket();
+    const { job: activeJob, completeJob, cancelJob, setWorkingStatus } = useWebSocket();
     const { coords: mechanicCoords } = useLocationContext();
     const { profile: authUser } = useAuth();
     const userData = authUser || {};
@@ -236,6 +236,10 @@ export default function JobDetailsPage() {
         const lat = currentJob?.latitude;
         const lng = currentJob?.longitude;
         if (!lat || !lng) return;
+
+        // Update Status to WORKING for server tracking
+        setWorkingStatus();
+
         const label = "Customer Location";
         const url = Platform.select({
             ios: `maps:0,0?q=${label}@${lat},${lng}`,
