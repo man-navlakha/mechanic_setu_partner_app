@@ -197,12 +197,12 @@ export default function ProfileScreen() {
     );
 
     // Menu Button Card
-    const MenuCard = ({ icon, title, subtitle, color, darkColor, onClick }) => (
+    const MenuCard = ({ icon, title, subtitle, onClick }) => (
         <TouchableOpacity
             onPress={onClick}
-            className="bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 flex-row items-center mb-3 active:bg-slate-50 dark:active:bg-slate-700"
+            className=" p-4 rounded-2xl border-y border-slate-100 dark:border-slate-700 flex-row items-center mb-3"
         >
-            <View className={`p-3 rounded-xl ${isDark ? (darkColor || color) : color} mr-4`}>
+            <View className={`p-2 mr-4`}>
                 {icon}
             </View>
             <View className="flex-1">

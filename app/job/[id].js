@@ -1,4 +1,5 @@
 import { Feather, Ionicons, MaterialIcons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { CheckCircle, IndianRupee, XCircle } from 'lucide-react-native';
@@ -139,6 +140,7 @@ export default function JobDetailsPage() {
             if (activeJob && String(activeJob.id) === String(id)) {
                 setCurrentJob(activeJob);
                 setFetchingDetails(false);
+                checkLocalArrival(id);
             } else {
                 try {
                     const res = await api.get(`/jobs/ServiceRequest/${id}/`);
@@ -168,13 +170,46 @@ export default function JobDetailsPage() {
                         ]);
                     }
                 } finally {
-                    if (isMounted) setFetchingDetails(false);
+                    if (isMounted) {
+                        setFetchingDetails(false);
+                        checkLocalArrival(id);
+                    }
                 }
             }
         };
+
+        const checkLocalArrival = async (jobId) => {
+            try {
+                const val = await AsyncStorage.getItem(`arrived_${jobId}`);
+                if (val === 'true') {
+                    setHasArrived(true);
+                    setIsNavigating(true);
+                }
+            } catch (e) {
+                console.log("Error checking local arrival:", e);
+            }
+        };
+
         loadJobData();
         return () => { isMounted = false; };
     }, [id, activeJob, isJobCompleted, isJobCancelledState]);
+
+    // --- 1.1 SYNC STATUS ---
+    useEffect(() => {
+        if (currentJob?.status) {
+            console.log(`[JobDetails] Syncing UI state with status: ${currentJob.status}`);
+            if (currentJob.status === 'ARRIVED') {
+                setHasArrived(true);
+                setIsNavigating(true);
+            } else if (currentJob.status === 'WORKING') {
+                setIsNavigating(true);
+                setHasArrived(false);
+            } else if (currentJob.status === 'ACCEPTED') {
+                setIsNavigating(false);
+                setHasArrived(false);
+            }
+        }
+    }, [currentJob?.status]);
 
     // --- 1.5 FETCH ADS ---
     useEffect(() => {
@@ -261,6 +296,7 @@ export default function JobDetailsPage() {
 
         try {
             await completeJob(currentJob.id, parseFloat(priceInput));
+            await AsyncStorage.removeItem(`arrived_${currentJob.id}`);
             setIsJobCompleted(true); // Trigger Animation
             setCompleteModalVisible(false); // Close only on success
             // Removed auto-redirect to allow user to view receipt
@@ -283,6 +319,7 @@ export default function JobDetailsPage() {
 
         try {
             await cancelJob(currentJob.id, cancelReason);
+            await AsyncStorage.removeItem(`arrived_${currentJob.id}`);
             setIsJobCancelledState(true); // Trigger Animation
             setTimeout(() => router.replace('/(tabs)'), 3500);
         } catch (err) {
@@ -299,6 +336,7 @@ export default function JobDetailsPage() {
         try {
             // Some backends require an empty object for POST requests to ensure Content-Type headers are set correctly
             await api.post(`/jobs/MechanicArrived/${currentJob.id}/`, {});
+            await AsyncStorage.setItem(`arrived_${currentJob.id}`, 'true');
             Alert.alert("Success", "Customer has been notified that you have arrived.");
             setHasArrived(true); // Update state to remove map and show completion options
         } catch (error) {
@@ -496,8 +534,8 @@ export default function JobDetailsPage() {
                 {/* --- 2. HEADER --- */}
                 {!hasArrived && (
                     <SafeAreaView className="absolute top-0 left-0 right-0 z-10 bg-green-600/95 shadow-lg pb-4 pt-2">
-                        <StatusBar barStyle="light-content" backgroundColor="#16a34a" />
-                        <View className="px-4 flex-row items-center pb-2 pt-2">
+                        <StatusBar barStyle="dark-content" backgroundColor="#16a34a" />
+                        <View className="px-4 flex-row items-center pb-2 pt-2 mt-5">
                             <TouchableOpacity onPress={() => router.back()} className="mr-3">
                                 <Ionicons name="chevron-back" size={28} color="white" />
                             </TouchableOpacity>
@@ -570,25 +608,41 @@ export default function JobDetailsPage() {
 
                             {/* PHASE 1: START NAVIGATION */}
                             {!isNavigating && !hasArrived && (
-                                <TouchableOpacity
-                                    onPress={handleNavigate}
-                                    className="bg-slate-900 flex-row items-center justify-center py-5 rounded-2xl mb-8 shadow-xl shadow-slate-300"
-                                >
-                                    <Ionicons name="navigate-circle" size={24} color="white" />
-                                    <Text className="text-white font-black text-lg ml-3 uppercase tracking-wide">Start Navigation</Text>
-                                </TouchableOpacity>
+                                <View className="flex-row gap-3 mb-8">
+                                    <TouchableOpacity
+                                        onPress={() => setCancelModalVisible(true)}
+                                        className="bg-red-600 px-6 py-5 rounded-2xl shadow-lg shadow-red-200"
+                                    >
+                                        <Ionicons name="close" size={24} color="white" />
+                                    </TouchableOpacity>
+                                    <TouchableOpacity
+                                        onPress={handleNavigate}
+                                        className="bg-slate-900 flex-1 flex-row items-center justify-center py-5 rounded-2xl shadow-xl shadow-slate-300"
+                                    >
+                                        <Ionicons name="navigate-circle" size={24} color="white" />
+                                        <Text className="text-white font-black text-lg ml-3 uppercase tracking-wide">Start Navigation</Text>
+                                    </TouchableOpacity>
+                                </View>
                             )}
 
                             {/* PHASE 2: I HAVE ARRIVED */}
                             {isNavigating && !hasArrived && (
                                 <View className="mb-8">
-                                    <TouchableOpacity
-                                        onPress={handleMechanicArrived}
-                                        className="bg-green-600 flex-row items-center justify-center py-5 rounded-2xl shadow-xl shadow-green-300"
-                                    >
-                                        <Ionicons name="location" size={24} color="white" />
-                                        <Text className="text-white font-black text-lg ml-3 uppercase tracking-wide">I Have Arrived</Text>
-                                    </TouchableOpacity>
+                                    <View className="flex-row gap-3 mb-3">
+                                        <TouchableOpacity
+                                            onPress={() => setCancelModalVisible(true)}
+                                            className="bg-red-600 px-6 py-5 rounded-2xl shadow-lg shadow-red-200"
+                                        >
+                                            <Ionicons name="close" size={24} color="white" />
+                                        </TouchableOpacity>
+                                        <TouchableOpacity
+                                            onPress={handleMechanicArrived}
+                                            className="bg-green-600 flex-1 flex-row items-center justify-center py-5 rounded-2xl shadow-xl shadow-green-300"
+                                        >
+                                            <Ionicons name="location" size={24} color="white" />
+                                            <Text className="text-white font-black text-lg ml-3 uppercase tracking-wide">I Have Arrived</Text>
+                                        </TouchableOpacity>
+                                    </View>
 
                                     {/* Re-open maps small button */}
                                     <TouchableOpacity onPress={handleNavigate} className="mt-3 bg-white border border-slate-200 py-3 rounded-xl items-center flex-row justify-center">
@@ -598,22 +652,15 @@ export default function JobDetailsPage() {
                                 </View>
                             )}
 
-                            {/* PHASE 3: COMPLETE / CANCEL (Only after Arrival) */}
+                            {/* PHASE 3: COMPLETE (Only after Arrival) */}
                             {hasArrived && (
-                                <View className="flex-row gap-4 mb-8">
-                                    <TouchableOpacity
-                                        onPress={() => setCancelModalVisible(true)}
-                                        className="flex-1 py-4 bg-red-600 rounded-2xl border border-red-200 items-center justify-center"
-                                    >
-                                        <Text className="text-white font-black text-lg ml-3 uppercase tracking-wide">Cancel</Text>
-                                    </TouchableOpacity>
-
+                                <View className="mb-8">
                                     <TouchableOpacity
                                         onPress={() => setCompleteModalVisible(true)}
-                                        className="flex-[2] py-4 bg-indigo-600 rounded-2xl shadow-lg shadow-indigo-200 items-center justify-center flex-row"
+                                        className="w-full py-5 bg-indigo-600 rounded-2xl shadow-lg shadow-indigo-200 items-center justify-center flex-row"
                                     >
-                                        <CheckCircle size={20} color="white" style={{ marginRight: 8 }} />
-                                        <Text className="text-white font-bold text-base">Complete Job</Text>
+                                        <CheckCircle size={24} color="white" style={{ marginRight: 12 }} />
+                                        <Text className="text-white font-black text-lg uppercase tracking-wide">Complete Job</Text>
                                     </TouchableOpacity>
                                 </View>
                             )}

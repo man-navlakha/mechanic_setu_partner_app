@@ -72,9 +72,9 @@ export default function SettingsScreen() {
         <TouchableOpacity
             onPress={onPress}
             activeOpacity={0.7}
-            className="flex-row items-center bg-white dark:bg-slate-800 p-4 mb-3 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm"
+            className="flex-row items-center p-2 mb-3 border-y rounded-3xl border-[#00000020] dark:border-[#ffffff20]"
         >
-            <View className={`p-3 rounded-xl mr-4 ${isDark ? 'bg-slate-700' : 'bg-slate-100'} `}>
+            <View className={`p-3 mr-4 `}>
                 {icon}
             </View>
             <View className="flex-1">

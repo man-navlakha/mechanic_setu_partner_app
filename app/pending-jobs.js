@@ -3,7 +3,7 @@ import { Bike, Car, MapPin, Truck, User, VolumeOff, X } from 'lucide-react-nativ
 import { useColorScheme } from 'nativewind';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, FlatList, Image, StatusBar, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, FlatList, Image, Modal, ScrollView, StatusBar, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useWebSocket } from '../context/WebSocketContext';
@@ -17,8 +17,8 @@ const getVehicleIcon = (type, isDark) => {
     return <Car size={18} color={color} />;
 };
 
-// --- Job Card Component (Matching JobNotificationPopup Style) ---
-const JobCard = ({ job, onAccept, onReject, isDark, t }) => {
+// --- Job Card Component ---
+const JobCard = ({ job, onAccept, onReject, onCancel, isDark, t }) => {
     const [accepting, setAccepting] = useState(false);
 
     const handleAccept = async () => {
@@ -111,8 +111,16 @@ const JobCard = ({ job, onAccept, onReject, isDark, t }) => {
                 {/* Action Buttons */}
                 <View className="flex-row gap-3">
                     <TouchableOpacity
+                        onPress={() => onCancel(job.id)}
+                        className="bg-red-100 dark:bg-red-900/20 p-3 rounded-xl items-center justify-center border border-red-200 dark:border-red-800"
+                        activeOpacity={0.7}
+                    >
+                        <X size={20} color={isDark ? "#f87171" : "#ef4444"} />
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
                         onPress={() => onReject(job.id)}
-                        className="bg-slate-200 dark:bg-slate-700 px-5 py-3 rounded-xl flex-1 items-center justify-center"
+                        className="bg-slate-200 dark:bg-slate-700 px-4 py-3 rounded-xl flex-1 items-center justify-center"
                         activeOpacity={0.7}
                     >
                         <Text className="text-slate-700 dark:text-slate-300 font-bold text-sm">
@@ -151,22 +159,26 @@ const JobCard = ({ job, onAccept, onReject, isDark, t }) => {
 export default function PendingJobsScreen() {
     const router = useRouter();
     const insets = useSafeAreaInsets();
-    const { pendingJobs, acceptJob, rejectJob, isOnline, setIsOnline, stopRing, isRinging } = useWebSocket();
+    const { pendingJobs, acceptJob, rejectJob, cancelJob, isOnline, setIsOnline, stopRing, isRinging } = useWebSocket();
     const { t } = useTranslation();
     const { colorScheme } = useColorScheme();
     const isDark = colorScheme === 'dark';
 
+    const [selectedJobIdForCancel, setSelectedJobIdForCancel] = useState(null);
+    const [cancelModalVisible, setCancelModalVisible] = useState(false);
+    const [cancelReason, setCancelReason] = useState('');
+    const [loadingAction, setLoadingAction] = useState(false);
+
     // Auto-navigate back to dashboard if all jobs are gone
     useEffect(() => {
-        if (pendingJobs.length === 0) {
+        if (pendingJobs.length === 0 && !cancelModalVisible) {
             router.back();
         }
-    }, [pendingJobs.length]);
+    }, [pendingJobs.length, cancelModalVisible]);
 
     const handleAccept = async (jobId) => {
         try {
             await acceptJob(jobId);
-            // Navigation will be handled by WebSocketContext
         } catch (error) {
             console.error('Error accepting job:', error);
         }
@@ -174,6 +186,29 @@ export default function PendingJobsScreen() {
 
     const handleReject = (jobId) => {
         rejectJob(jobId);
+    };
+
+    const handleOpenCancel = (jobId) => {
+        setSelectedJobIdForCancel(jobId);
+        setCancelModalVisible(true);
+    };
+
+    const submitCancellation = async () => {
+        if (!cancelReason.trim()) {
+            Alert.alert("Required", "Please select or type a reason.");
+            return;
+        }
+        setLoadingAction(true);
+        try {
+            await cancelJob(selectedJobIdForCancel, cancelReason);
+            setCancelModalVisible(false);
+            setCancelReason('');
+            // After cancellation, the list will update via WebSocket
+        } catch (err) {
+            Alert.alert("Error", "Failed to cancel job.");
+        } finally {
+            setLoadingAction(false);
+        }
     };
 
     return (
@@ -208,9 +243,6 @@ export default function PendingJobsScreen() {
 
                     {/* Right: Controls */}
                     <View className="flex-row items-center gap-2">
-
-
-                        {/* Close Button */}
                         <TouchableOpacity
                             onPress={() => router.back()}
                             className="bg-slate-100 dark:bg-slate-700 p-2 rounded-full"
@@ -249,6 +281,7 @@ export default function PendingJobsScreen() {
                         job={item}
                         onAccept={handleAccept}
                         onReject={handleReject}
+                        onCancel={handleOpenCancel}
                         isDark={isDark}
                         t={t}
                     />
@@ -256,6 +289,44 @@ export default function PendingJobsScreen() {
                 contentContainerStyle={{ paddingTop: 12, paddingBottom: 100 }}
                 showsVerticalScrollIndicator={false}
             />
+
+            {/* Cancel Modal */}
+            <Modal animationType="slide" transparent visible={cancelModalVisible} onRequestClose={() => setCancelModalVisible(false)}>
+                <View className="flex-1 justify-end bg-slate-900/60">
+                    <View className="bg-white dark:bg-slate-800 rounded-t-3xl p-6 h-[70%]">
+                        <View className="flex-row justify-between items-center mb-6">
+                            <Text className="text-xl font-bold text-slate-900 dark:text-slate-100">Cancellation Reason</Text>
+                            <TouchableOpacity onPress={() => setCancelModalVisible(false)}>
+                                <X size={24} color={isDark ? "#94a3b8" : "#64748b"} />
+                            </TouchableOpacity>
+                        </View>
+
+                        <ScrollView showsVerticalScrollIndicator={false}>
+                            {["Customer requested cancel", "Unable to contact customer", "Vehicle issue too complex", "I had an emergency", "Parts not available"].map((r) => (
+                                <TouchableOpacity
+                                    key={r}
+                                    onPress={() => setCancelReason(r)}
+                                    className={`p-4 rounded-xl border mb-3 flex-row justify-between ${cancelReason === r ? 'bg-red-50 border-red-500 dark:bg-red-900/20' : 'bg-slate-50 border-slate-100 dark:bg-slate-700 dark:border-slate-600'}`}
+                                >
+                                    <Text className={`font-medium ${cancelReason === r ? 'text-red-700 dark:text-red-400' : 'text-slate-700 dark:text-slate-300'}`}>{r}</Text>
+                                </TouchableOpacity>
+                            ))}
+                            <TextInput
+                                placeholder="Other reason..."
+                                placeholderTextColor={isDark ? "#64748b" : "#94a3b8"}
+                                value={cancelReason}
+                                onChangeText={setCancelReason}
+                                className="bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 p-4 rounded-xl h-24 text-slate-700 dark:text-slate-200 mb-6"
+                                multiline
+                                textAlignVertical="top"
+                            />
+                        </ScrollView>
+                        <TouchableOpacity onPress={submitCancellation} disabled={loadingAction} className="bg-red-500 py-4 rounded-xl items-center shadow-lg shadow-red-200 mt-4">
+                            {loadingAction ? <ActivityIndicator color="white" /> : <Text className="text-white font-bold text-lg">Confirm Cancellation</Text>}
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </Modal>
         </View>
     );
 }

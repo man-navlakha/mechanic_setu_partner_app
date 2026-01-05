@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Audio, InterruptionModeAndroid, InterruptionModeIOS } from 'expo-av';
 import { router } from 'expo-router';
 import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
@@ -5,6 +6,7 @@ import { Alert, AppState } from 'react-native';
 import api from '../utils/api';
 import { useAuth } from './AuthContext';
 import { useLocationContext } from './LocationContext';
+
 // --- SAFE IMPORT FOR NOTIFEE ---
 let notifee;
 try {
@@ -23,7 +25,7 @@ export const useWebSocket = () => {
 
 export const WebSocketProvider = ({ children }) => {
     const { user } = useAuth(); // Get user from AuthContext
-    const { latestCoordsRef, setIsHighAccuracy } = useLocationContext();
+    const { coords, latestCoordsRef, setIsHighAccuracy } = useLocationContext();
 
     // --- STATE ---
     const [socket, setSocket] = useState(null);
@@ -90,37 +92,66 @@ export const WebSocketProvider = ({ children }) => {
             setIsHighAccuracy(false); // Switch to Battery Saving
         }
     }, [job?.status, setIsHighAccuracy]);
-    // --- CONNECTION MONITOR (Heartbeat) ---
+    
+    // --- LOCATION + HEARTBEAT (Combined for efficiency) ---
     useEffect(() => {
         const interval = setInterval(() => {
-            // Read from the Ref directly. This DOES NOT trigger re-renders.
-            if (latestCoordsRef.current && socketRef.current?.readyState === WebSocket.OPEN) {
+            if (socketRef.current?.readyState === WebSocket.OPEN) {
                 const jobId = jobRef.current?.id;
-                const locationData = {
-                    type: 'location_update',
-                    ...latestCoordsRef.current,
-                    job_id: jobId ? Number(jobId) : null
-                };
+                
+                // Send location if available
+                if (latestCoordsRef.current) {
+                    const locationData = {
+                        type: 'location_update',
+                        ...latestCoordsRef.current,
+                        job_id: jobId ? Number(jobId) : null
+                    };
 
-                if (jobId) {
-                    console.log(`[WS] 📤 SENDING LOCATION (Job Active: ${jobId}):`, JSON.stringify(locationData, null, 2));
+                    if (jobId) {
+                        console.log(`[WS] 📤 SENDING LOCATION (Job #${jobId})`);
+                    } else {
+                        console.log("[WS] 📤 SENDING LOCATION (Idle/Online)");
+                    }
+
+                    socketRef.current.send(JSON.stringify(locationData));
                 } else {
-                    console.log("[WS] 📤 SENDING BACKGROUND LOCATION (No Active Job):", JSON.stringify(locationData, null, 2));
+                    // Just send heartbeat if no location yet
+                    const pingMessage = JSON.stringify({ type: 'user_heartbeat', timestamp: Date.now() });
+                    socketRef.current.send(pingMessage);
+                    console.log('[WS] 💓 Heartbeat sent (no location)');
                 }
-
-                socketRef.current.send(JSON.stringify(locationData));
             } else {
-                if (!latestCoordsRef.current) {
-                    console.log("[WS] ⚠️ HEARTBEAT: No location data available");
-                }
-                if (socketRef.current?.readyState !== WebSocket.OPEN) {
-                    console.log("[WS] ⚠️ HEARTBEAT: WebSocket not connected (ReadyState: " + socketRef.current?.readyState + ")");
-                }
+                console.log("[WS] ⚠️ WebSocket not connected (ReadyState: " + socketRef.current?.readyState + ")");
             }
-        }, 2500);
+        }, 5000); // Send every 5 seconds
         return () => clearInterval(interval);
     }, []);
-    useEffect(() => { jobRef.current = job; }, [job]);
+
+
+    // --- SYNC HEARTBEAT WITH LOCATION (Background pulse) ---
+    useEffect(() => {
+        if (coords && socketRef.current?.readyState === WebSocket.OPEN) {
+            try {
+                const pingMessage = JSON.stringify({ type: 'user_heartbeat', timestamp: Date.now() });
+                socketRef.current.send(pingMessage);
+                console.log('%c[WS-PROVIDER] 🫀 Location-Triggered Heartbeat:', 'color: #10b981;', pingMessage);
+            } catch (err) {
+                console.error('[WS-PROVIDER] Failed to send location-triggered ping:', err);
+            }
+        }
+    }, [coords]);
+    useEffect(() => {
+        jobRef.current = job;
+        if (job) {
+            AsyncStorage.setItem('activeJob', JSON.stringify(job)).catch(e => console.error("Error saving job:", e));
+        } else {
+            AsyncStorage.removeItem('activeJob').catch(e => console.error("Error removing job:", e));
+        }
+    }, [job]);
+
+    useEffect(() => {
+        AsyncStorage.setItem('isOnline', JSON.stringify(isOnline)).catch(e => console.error("Error saving online status:", e));
+    }, [isOnline]);
 
     const requestNotificationPermission = async () => {
         if (notifee) await notifee.requestPermission();

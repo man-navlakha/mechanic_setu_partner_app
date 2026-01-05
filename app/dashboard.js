@@ -4,7 +4,7 @@ import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
-import { Bell, Globe, HelpCircle, History, MapPin, Navigation, User, VolumeOff, Wrench, X } from 'lucide-react-native';
+import { Bell, Globe, HelpCircle, History, MapPin, Navigation, User, VolumeOff, X } from 'lucide-react-native';
 import { useColorScheme } from 'nativewind';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -309,35 +309,6 @@ export default function Dashboard() {
                 showsMyLocationButton={false}
                 customMapStyle={isDark ? darkMapStyle : lightMapStyle}
             >
-                {isOnline && nearbyJobs.map(j => (
-                    <Marker key={j.id} coordinate={{ latitude: j.lat, longitude: j.lng }} title={j.type}>
-                        <View className="bg-blue-600 p-2 rounded-full border-2 border-white shadow-md">
-                            <Wrench size={16} color="white" />
-                        </View>
-                    </Marker>
-                ))}
-
-                {/* --- PENDING / INCOMING JOBS MARKERS --- */}
-                {pendingJobs.map(j => {
-                    // Ensure we have valid coordinates
-                    const lat = parseFloat(j.latitude);
-                    const lng = parseFloat(j.longitude);
-                    if (!lat || !lng) return null;
-
-                    return (
-                        <Marker
-                            key={`pending-${j.id}`}
-                            coordinate={{ latitude: lat, longitude: lng }}
-                            title={j.problem}
-                            onPress={() => setViewingJobId(j.id)}
-                            zIndex={100} // Ensure these sit on top
-                        >
-                            <View className="bg-red-600 p-3 rounded-full border-2 border-white shadow-lg">
-                                <Wrench size={20} color="white" />
-                            </View>
-                        </Marker>
-                    );
-                })}
 
                 {/* --- ADS MARKERS (Click to Open Popup) --- */}
                 {adsData.map((ad) => (
@@ -406,9 +377,8 @@ export default function Dashboard() {
                     </View>
 
                     {/* Active Job Floating Banner */}
-                    {/* FIX: SHOW FOR BOTH 'WORKING' AND 'ACCEPTED' */}
                     {
-                        job && (job.status === "WORKING" || job.status === "ACCEPTED") && (
+                        job && (job.status === "WORKING" || job.status === "ACCEPTED" || job.status === "ARRIVED") && (
                             <View className="mx-4 mt-3 bg-slate-900 dark:bg-slate-800 rounded-2xl p-4 shadow-xl flex-row justify-between items-center border border-slate-700">
                                 <View>
                                     <Text className="text-white font-bold text-base">{t('dashboard.activeJob')} #{job.id}</Text>
