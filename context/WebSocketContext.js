@@ -35,11 +35,11 @@ export const WebSocketProvider = ({ children }) => {
     const [job, setJob] = useState(null);
     const [pendingJobs, setPendingJobs] = useState([]);
     const jobRef = useRef(null);
+    const autoRejectTimers = useRef(new Map());
     const intendedOnlineState = useRef(false);
     const appState = useRef(AppState.currentState);
     const soundRef = useRef(null);
     const processedJobIds = useRef(new Set()); // Track accepted/pending IDs to avoid duplicate alerts
-    const autoRejectTimers = useRef(new Map()); // Track auto-reject timers
     const currentSoundId = useRef(0); // For handling async sound loading race conditions
 
     // --- 1. INITIALIZATION (Only when user is logged in) ---
@@ -81,8 +81,6 @@ export const WebSocketProvider = ({ children }) => {
             if (unsubscribeNotifee) unsubscribeNotifee();
             disconnectWebSocket();
             stopRing();
-            autoRejectTimers.current.forEach(clearTimeout);
-            autoRejectTimers.current.clear();
         };
     }, [user]); // Re-run when user changes (login/logout)
     useEffect(() => {
@@ -92,13 +90,16 @@ export const WebSocketProvider = ({ children }) => {
             setIsHighAccuracy(false); // Switch to Battery Saving
         }
     }, [job?.status, setIsHighAccuracy]);
-    
+
     // --- LOCATION + HEARTBEAT (Combined for efficiency) ---
     useEffect(() => {
-        const interval = setInterval(() => {
+        // Random interval between 60-120 seconds (in milliseconds)
+        const getRandomInterval = () => Math.floor(Math.random() * (120000 - 60000 + 1)) + 60000;
+
+        const sendLocationUpdate = () => {
             if (socketRef.current?.readyState === WebSocket.OPEN) {
                 const jobId = jobRef.current?.id;
-                
+
                 // Send location if available
                 if (latestCoordsRef.current) {
                     const locationData = {
@@ -123,8 +124,22 @@ export const WebSocketProvider = ({ children }) => {
             } else {
                 console.log("[WS] ⚠️ WebSocket not connected (ReadyState: " + socketRef.current?.readyState + ")");
             }
-        }, 5000); // Send every 5 seconds
-        return () => clearInterval(interval);
+        };
+
+        // Use dynamic interval with setTimeout for random intervals between 60-120 seconds
+        let timeoutId;
+        const scheduleNextUpdate = () => {
+            const interval = getRandomInterval();
+            console.log(`[WS] ⏱️ Next location update in ${Math.round(interval / 1000)} seconds`);
+            timeoutId = setTimeout(() => {
+                sendLocationUpdate();
+                scheduleNextUpdate();
+            }, interval);
+        };
+
+        scheduleNextUpdate();
+
+        return () => clearTimeout(timeoutId);
     }, []);
 
 
@@ -526,8 +541,13 @@ export const WebSocketProvider = ({ children }) => {
 
                 setPendingJobs(prev => {
                     // Fail-safe deduplication for state
-                    if (prev.some(j => j.id === data.service_request.id)) return prev;
-                    return [...prev, data.service_request];
+                    if (prev.some(j => j.id === data.service_request.id)) {
+                        console.log(`[WS] Job ${data.service_request.id} already in pendingJobs, skipping state update`);
+                        return prev;
+                    }
+                    const newPendingJobs = [...prev, data.service_request];
+                    console.log(`[WS] ✅ pendingJobs updated! New count: ${newPendingJobs.length}`, newPendingJobs.map(j => j.id));
+                    return newPendingJobs;
                 });
 
                 if (AppState.currentState !== 'active' && notifee) {
@@ -537,14 +557,7 @@ export const WebSocketProvider = ({ children }) => {
                     playNotificationSound();
                 }
 
-                // --- Auto Reject Timer (30 seconds) ---
-                if (!autoRejectTimers.current.has(data.service_request.id)) {
-                    const timerId = setTimeout(() => {
-                        console.log(`[WS] Auto-rejecting job ${data.service_request.id} after 30s`);
-                        rejectJob(data.service_request.id);
-                    }, 30000);
-                    autoRejectTimers.current.set(data.service_request.id, timerId);
-                }
+                // Note: Job expiration is now handled by server-sent 'job_expired' message
                 break;
 
             case "job_status_update":
@@ -575,31 +588,21 @@ export const WebSocketProvider = ({ children }) => {
                     return prev;
                 });
                 break;
-            // --- ADD THESE NEW CASES ---
+            // --- Handle job expiration from server ---
             case "job_taken":
             case "job_expired":
                 console.log(`[WS] Removing job ${data.job_id} (Reason: ${data.type})`);
 
                 // Remove the job from the pending list
                 setPendingJobs(prev => {
-                    const exists = prev.find(j => j.id == data.job_id);
-                    if (exists) {
-                        // Stop ring if this was the only/ringing job
-                        if (autoRejectTimers.current.has(exists.id)) {
-                            clearTimeout(autoRejectTimers.current.get(exists.id));
-                            autoRejectTimers.current.delete(exists.id);
-                        }
-                        const filtered = prev.filter(j => j.id != data.job_id);
-                        if (filtered.length === 0) stopRing();
-                        return filtered;
-                    }
-                    return prev;
+                    const filtered = prev.filter(j => j.id != data.job_id);
+                    if (filtered.length === 0) stopRing();
+                    return filtered;
                 });
 
                 // Remove notification if it exists
                 if (notifee) notifee.cancelNotification(`job_alert_${data.job_id}`);
                 break;
-            // ---------------------------
 
             case "location_update":
                 console.log("[WS] ✅ Location update acknowledged by server");

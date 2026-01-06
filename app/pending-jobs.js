@@ -40,38 +40,39 @@ const JobCard = ({ job, onAccept, onReject, onCancel, isDark, t }) => {
         >
             {/* Card Content */}
             <View className="p-5">
-                {/* Vehicle Type & Problem */}
-                <View className="flex-row items-center mb-2">
-                    {getVehicleIcon(job.vehical_type, isDark)}
-                    <Text className="text-xs font-bold text-slate-500 dark:text-slate-400 ml-2">
-                        {job.vehical_type || t('jobPopup.vehicle')}
-                    </Text>
+                {/* Header Row: Vehicle Type & Status Badge */}
+                <View className="flex-row items-center justify-between mb-2">
+                    <View className="flex-row items-center">
+                        {getVehicleIcon(job.vehical_type, isDark)}
+                        <Text className="text-xs font-bold text-slate-500 dark:text-slate-400 ml-2 uppercase">
+                            {job.vehical_type || t('jobPopup.vehicle')}
+                        </Text>
+                    </View>
+                    {/* Status Badge */}
+                    <View className={`px-2.5 py-1 rounded-full ${job.status === 'PENDING' ? 'bg-amber-100 dark:bg-amber-900/30' :
+                            job.status === 'ACCEPTED' ? 'bg-green-100 dark:bg-green-900/30' :
+                                'bg-slate-100 dark:bg-slate-700'
+                        }`}>
+                        <Text className={`text-[10px] font-bold uppercase ${job.status === 'PENDING' ? 'text-amber-700 dark:text-amber-400' :
+                                job.status === 'ACCEPTED' ? 'text-green-700 dark:text-green-400' :
+                                    'text-slate-500 dark:text-slate-400'
+                            }`}>
+                            {job.status}
+                        </Text>
+                    </View>
                 </View>
 
-                {/* Problem Title and Price Badge */}
+                {/* Problem Title and Job ID Badge */}
                 <View className="flex-row justify-between items-start mb-3">
                     <Text className="text-xl font-black text-slate-900 dark:text-slate-100 flex-1 mr-3" numberOfLines={2}>
                         {job.problem || t('jobPopup.unknownIssue')}
                     </Text>
                     <View className="bg-blue-500 px-3 py-1.5 rounded-lg">
                         <Text className="text-white font-bold text-sm">
-                            ₹{job.price || '73'}
-                        </Text>
-                        <Text className="text-white/80 text-[10px] font-semibold">
                             #{job.id}
                         </Text>
                     </View>
                 </View>
-
-                {/* Distance Badge */}
-                {job.distance && (
-                    <View className="bg-green-100 dark:bg-green-900/30 self-start px-3 py-1 rounded-lg mb-3 flex-row items-center">
-                        <MapPin size={12} color="#22c55e" />
-                        <Text className="text-xs font-bold text-green-700 dark:text-green-400 ml-1">
-                            {job.distance} Km
-                        </Text>
-                    </View>
-                )}
 
                 {/* Location */}
                 <View className="flex-row items-start mb-3">
@@ -83,25 +84,49 @@ const JobCard = ({ job, onAccept, onReject, onCancel, isDark, t }) => {
                     </View>
                 </View>
 
+                {/* Coordinates */}
+                {job.latitude && job.longitude && (
+                    <View className="bg-slate-50 dark:bg-slate-700/50 rounded-lg p-2.5 mb-3">
+                        <Text className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase mb-1">
+                            Coordinates
+                        </Text>
+                        <Text className="text-xs text-slate-600 dark:text-slate-300 font-mono">
+                            {job.latitude.toFixed(6)}, {job.longitude.toFixed(6)}
+                        </Text>
+                    </View>
+                )}
+
+                {/* Additional Details */}
+                {job.additional_details && job.additional_details.trim() !== '' && (
+                    <View className="bg-amber-50 dark:bg-amber-900/20 rounded-lg p-3 mb-3 border border-amber-200 dark:border-amber-800">
+                        <Text className="text-[10px] font-bold text-amber-600 dark:text-amber-400 uppercase mb-1">
+                            Additional Details
+                        </Text>
+                        <Text className="text-sm text-amber-800 dark:text-amber-200">
+                            {job.additional_details}
+                        </Text>
+                    </View>
+                )}
+
                 {/* Customer Info */}
                 <View className="flex-row items-center mb-4">
-                    <View className="w-10 h-10 rounded-full bg-pink-100 dark:bg-pink-900/30 items-center justify-center mr-3 overflow-hidden">
+                    <View className="w-12 h-12 rounded-full bg-pink-100 dark:bg-pink-900/30 items-center justify-center mr-3 overflow-hidden">
                         {job.user_profile_pic ? (
                             <Image
                                 source={{ uri: job.user_profile_pic }}
-                                className="w-10 h-10"
+                                className="w-12 h-12"
                                 resizeMode="cover"
                             />
                         ) : (
-                            <User size={20} color={isDark ? "#f472b6" : "#db2777"} />
+                            <User size={24} color={isDark ? "#f472b6" : "#db2777"} />
                         )}
                     </View>
                     <View className="flex-1">
-                        <Text className="text-sm text-slate-900 dark:text-slate-100 font-bold">
+                        <Text className="text-base text-slate-900 dark:text-slate-100 font-bold">
                             {job.first_name} {job.last_name}
                         </Text>
                         {job.mobile_number && (
-                            <Text className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                            <Text className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
                                 {job.mobile_number}
                             </Text>
                         )}
@@ -155,6 +180,7 @@ const JobCard = ({ job, onAccept, onReject, onCancel, isDark, t }) => {
     );
 };
 
+
 // --- Main Screen ---
 export default function PendingJobsScreen() {
     const router = useRouter();
@@ -171,6 +197,7 @@ export default function PendingJobsScreen() {
 
     // Auto-navigate back to dashboard if all jobs are gone
     useEffect(() => {
+        console.log(`[PendingJobs] 📊 Current pendingJobs count: ${pendingJobs.length}`, pendingJobs.map(j => j.id));
         if (pendingJobs.length === 0 && !cancelModalVisible) {
             router.back();
         }
