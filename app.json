@@ -2,7 +2,7 @@
   "expo": {
     "name": "Setu Partner",
     "slug": "setupartner",
-    "version": "1.6.3",
+    "version": "1.6.5",
     "orientation": "portrait",
     "icon": "./assets/logo.png",
     "scheme": "setu-partner",
@@ -84,9 +84,8 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "5b71b29a-8b24-48de-b57c-6ab2818acbf6"
+        "projectId": "6621bdb7-5cb3-4ed3-8df4-4ddcf16cd17b"
       }
-    },
-    "owner": "mannnavlakha"
+    }
   }
 }
