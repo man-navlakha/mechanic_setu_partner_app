@@ -1,172 +1,146 @@
+import { MapPin } from 'lucide-react-native';
 import { useColorScheme } from 'nativewind';
-import { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import {
-    ActivityIndicator,
-    Alert,
-    ScrollView,
-    StatusBar,
-    Text,
-    TouchableOpacity,
-    View,
-} from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ActivityIndicator, SafeAreaView, ScrollView, StatusBar, Text, View } from 'react-native';
+import DateFilter from '../../components/History/DateFilter';
+import EarningsChart from '../../components/History/EarningsChart';
+import EarningsStats from '../../components/History/EarningsStats';
 import api from '../../utils/api';
 
-export default function HistoryScreen() {
-    const { t } = useTranslation();
+// --- HistoryContent (Container for logic) ---
+const HistoryContent = React.memo(({ initialJobs, t }) => {
     const { colorScheme } = useColorScheme();
     const isDark = colorScheme === 'dark';
-    const insets = useSafeAreaInsets();
+    const [filter, setFilter] = useState('week');
 
+    // Filter Logic
+    const { filteredJobs, financialJobs, totalEarnings, totalJobsCount } = useMemo(() => {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        const getDaysDiff = (dateStr) => {
+            const jobDate = new Date(dateStr);
+            jobDate.setHours(0, 0, 0, 0);
+            const diffTime = today.getTime() - jobDate.getTime();
+            return Math.floor(diffTime / (1000 * 60 * 60 * 24));
+        };
+
+        const listFiltered = initialJobs.filter(job => {
+            if (!job.created_at) return false;
+            const diffDays = getDaysDiff(job.created_at);
+
+            if (filter === 'day') return diffDays === 0;
+            if (filter === 'week') return diffDays >= 0 && diffDays < 7;
+            if (filter === 'month') return diffDays >= 0 && diffDays < 28;
+            return false;
+        });
+
+        const financialFiltered = listFiltered.filter(j => j.status === 'COMPLETED');
+        const sum = financialFiltered.reduce((acc, curr) => acc + (parseFloat(curr.price) || 0), 0);
+
+        return {
+            filteredJobs: listFiltered,
+            financialJobs: financialFiltered,
+            totalEarnings: sum,
+            totalJobsCount: listFiltered.length
+        };
+    }, [initialJobs, filter]);
+
+    return (
+        <ScrollView className="flex-1 p-4" showsVerticalScrollIndicator={false}>
+            {/* 1. DateFilter Component */}
+            <DateFilter filter={filter} onChange={setFilter} />
+
+            {/* 2. EarningsStats Component */}
+            <EarningsStats
+                totalEarnings={totalEarnings}
+                totalJobs={totalJobsCount}
+                filter={filter}
+                isDark={isDark}
+            />
+
+            {/* 3. EarningsChart Component */}
+            <EarningsChart
+                jobs={financialJobs}
+                currentFilter={filter}
+                isDark={isDark}
+            />
+
+            {/* Job History List */}
+            <Text className="text-lg font-bold text-slate-900 dark:text-slate-100 mb-3">{t('profile.jobHistory')}</Text>
+
+            {filteredJobs.length === 0 ? (
+                <View className="items-center py-10">
+                    <Text className="text-slate-400 dark:text-slate-500 font-medium">{t('profile.noHistory')}</Text>
+                </View>
+            ) : (
+                filteredJobs.map((job, index) => (
+                    <View key={index} className="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-100 dark:border-slate-700 mb-3 shadow-sm">
+                        <View className="flex-row justify-between items-start mb-2">
+                            <Text className="font-bold text-slate-800 dark:text-slate-100 text-base flex-1 mr-2">{job.problem}</Text>
+                            <View className={`px-2 py-1 rounded-md ${job.status === 'COMPLETED' ? 'bg-green-100 dark:bg-green-900/30' : 'bg-slate-100 dark:bg-slate-700'}`}>
+                                <Text className={`text-[10px] font-bold ${job.status === 'COMPLETED' ? 'text-green-700 dark:text-green-400' : 'text-slate-500 dark:text-slate-400'}`}>
+                                    {job.status}
+                                </Text>
+                            </View>
+                        </View>
+                        <Text className="text-slate-500 dark:text-slate-400 text-xs mb-3">{new Date(job.created_at).toDateString()}</Text>
+                        <View className="flex-row justify-between items-center border-t border-slate-50 dark:border-slate-700 pt-3">
+                            <Text className="text-slate-400 dark:text-slate-500 text-xs max-w-[70%]" numberOfLines={1}>
+                                <MapPin size={10} color={isDark ? "#64748b" : "#94a3b8"} /> {job.location || "Unknown Location"}
+                            </Text>
+                            <Text className="font-bold text-slate-900 dark:text-slate-100 text-base">₹{job.price || 0}</Text>
+                        </View>
+                    </View>
+                ))
+            )}
+        </ScrollView>
+    );
+});
+
+// --- HistoryScreen (Fetcher) ---
+export default function HistoryScreen() {
+    const { colorScheme } = useColorScheme();
+    const isDark = colorScheme === 'dark';
+    const { t } = useTranslation();
     const [historyData, setHistoryData] = useState(null);
     const [loading, setLoading] = useState(true);
 
-    // Tab: "TODAY" or "HISTORY"
-    const [activeTab, setActiveTab] = useState('TODAY');
-
-    // Filter: "ALL", "COMPLETED", "PENDING"
-    const [activeFilter, setActiveFilter] = useState('ALL');
-
-    useEffect(() => {
-        let isMounted = true;
-        const fetchHistory = async () => {
-            try {
-                const res = await api.get('/Profile/MechanicHistory/');
-                if (isMounted) {
-                    setHistoryData(res.data);
-                }
-            } catch (error) {
-                console.error('Failed to fetch history:', error);
-                if (isMounted) Alert.alert(t('history.error'), t('history.loadError'));
-            } finally {
-                if (isMounted) setLoading(false);
-            }
-        };
-        fetchHistory();
-        return () => { isMounted = false; };
+    const fetchHistory = useCallback(async () => {
+        try {
+            setLoading(true);
+            const res = await api.get('/Profile/MechanicHistory/');
+            setHistoryData(res.data);
+        } catch (error) {
+            console.error("Failed to fetch history:", error);
+            // Alert.alert("Error", "Could not load earnings history."); 
+        } finally {
+            setLoading(false);
+        }
     }, []);
 
-    const jobs = historyData?.job_history ?? [];
+    useEffect(() => {
+        fetchHistory();
+    }, [fetchHistory]);
 
-    // Helper: Check if date is today (Local Time)
-    const isToday = (dateString) => {
-        if (!dateString) return false;
-        const inputDate = new Date(dateString);
-        const today = new Date();
-        return (
-            inputDate.getDate() === today.getDate() &&
-            inputDate.getMonth() === today.getMonth() &&
-            inputDate.getFullYear() === today.getFullYear()
-        );
-    };
-
-    // Helper: Check Status for Filtering
-    const checkStatus = (job, filter) => {
-        if (filter === 'ALL') return true;
-        if (filter === 'COMPLETED') {
-            return job.status === 'COMPLETED' || job.status === 'CANCELLED' || job.status === 'EXPIRED';
-        }
-        if (filter === 'PENDING') {
-            return ['PENDING', 'ACCEPTED', 'ARRIVED', 'WORKING'].includes(job.status);
-        }
-        return job.status === filter;
-    };
-
-    // --- FIX 2: ROBUST EARNINGS CALCULATION ---
-    const stats = useMemo(() => {
-        // 1. Determine which pool of jobs to calculate from (Today vs All)
-        let relevantJobs = jobs;
-        if (activeTab === 'TODAY') {
-            relevantJobs = jobs.filter((job) => isToday(job.created_at));
-        }
-
-        // 2. Only sum up "COMPLETED" jobs for earnings
-        const completedJobs = relevantJobs.filter(j => j.status === 'COMPLETED');
-
-        const total = completedJobs.reduce((sum, job) => {
-            // Safety check: handle string "500.00", number 500, or null
-            const val = parseFloat(String(job.price || 0));
-            return sum + (isNaN(val) ? 0 : val);
-        }, 0);
-
-        return { total, count: completedJobs.length };
-    }, [jobs, activeTab]);
-
-    // Filtered List for Display
-    const filteredJobs = useMemo(() => {
-        let data = jobs;
-
-        // 1. Filter by Tab (Time)
-        if (activeTab === 'TODAY') {
-            data = data.filter((job) => isToday(job.created_at));
-        }
-
-        // 2. Filter by Status Pill
-        if (activeFilter !== 'ALL') {
-            data = data.filter((job) => checkStatus(job, activeFilter));
-        }
-
-        return [...data].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-    }, [jobs, activeTab, activeFilter]);
-
-    if (loading) {
+    if (loading && !historyData) {
         return (
             <View className="flex-1 justify-center items-center bg-slate-50 dark:bg-slate-900">
-                <ActivityIndicator size="large" color={isDark ? '#60a5fa' : '#2563eb'} />
+                <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
+                <ActivityIndicator size="large" color={isDark ? "#60a5fa" : "#2563eb"} />
             </View>
         );
     }
 
     return (
-        <SafeAreaView style={{ flex: 1, backgroundColor: isDark ? '#0f172a' : '#f1f5f9' }} edges={['top']}>
-            <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
-            <View style={{ flex: 1, padding: 16 }}>
-                <Text style={{ fontSize: 24, fontWeight: 'bold', color: isDark ? 'white' : 'black', marginBottom: 16 }}>
-                    {t('history.title')}
-                </Text>
-
-                <View style={{ backgroundColor: isDark ? '#334155' : 'white', borderRadius: 12, padding: 20, marginBottom: 20 }}>
-                    <Text style={{ color: isDark ? '#94a3b8' : '#64748b' }}>
-                        {activeTab === 'TODAY' ? t('history.todayEarnings') : t('history.totalEarnings')}
-                    </Text>
-                    <Text style={{ fontSize: 32, fontWeight: '900', color: isDark ? 'white' : 'black' }}>
-                        ₹ {stats.total}
-                    </Text>
-                </View>
-
-                {/* Simplified Tabs */}
-                <View style={{ flexDirection: 'row', backgroundColor: isDark ? '#1e293b' : '#e2e8f0', borderRadius: 8, padding: 4 }}>
-                    <TouchableOpacity
-                        onPress={() => setActiveTab('TODAY')}
-                        style={{ flex: 1, paddingVertical: 8, alignItems: 'center', backgroundColor: activeTab === 'TODAY' ? (isDark ? '#475569' : 'white') : 'transparent', borderRadius: 6 }}
-                    >
-                        <Text style={{ fontWeight: '600', color: isDark ? 'white' : (activeTab === 'TODAY' ? 'black' : '#64748b') }}>{t('history.today')}</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                        onPress={() => setActiveTab('HISTORY')}
-                        style={{ flex: 1, paddingVertical: 8, alignItems: 'center', backgroundColor: activeTab === 'HISTORY' ? (isDark ? '#475569' : 'white') : 'transparent', borderRadius: 6 }}
-                    >
-                        <Text style={{ fontWeight: '600', color: isDark ? 'white' : (activeTab === 'HISTORY' ? 'black' : '#64748b') }}>{t('history.history')}</Text>
-                    </TouchableOpacity>
-                </View>
-
-                <ScrollView style={{ marginTop: 20 }}>
-                    {filteredJobs.length === 0 ? (
-                        <Text style={{ textAlign: 'center', color: '#94a3b8', marginTop: 40 }}>{t('history.noRecords')}</Text>
-                    ) : (
-                        filteredJobs.map((job, index) => (
-                            <View key={job.id || index} style={{ backgroundColor: isDark ? '#1e293b' : 'white', padding: 12, borderRadius: 10, marginBottom: 10 }}>
-                                <Text style={{ color: isDark ? 'white' : 'black', fontWeight: 'bold' }}>{job.problem}</Text>
-                                <Text style={{ color: '#94a3b8', fontSize: 12 }}>{new Date(job.created_at).toLocaleDateString()}</Text>
-                                <Text style={{ color: job.status === 'COMPLETED' ? '#10b981' : '#f59e0b', fontWeight: 'bold', marginTop: 4 }}>
-                                    {job.price ? `₹${job.price}` : '-'} ({job.status})
-                                </Text>
-                            </View>
-                        ))
-                    )}
-                </ScrollView>
+        <SafeAreaView className="flex-1 bg-slate-50 dark:bg-slate-900">
+            <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
+            <View className="px-4 py-4 bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700">
+                <Text className="text-xl font-bold text-slate-900 dark:text-slate-100">{t('tabs.earnings')}</Text>
             </View>
+
+            <HistoryContent initialJobs={historyData?.job_history || []} t={t} />
         </SafeAreaView>
     );
 }

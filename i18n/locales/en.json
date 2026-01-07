@@ -122,7 +122,25 @@
         "lightModeOn": "Light mode is on",
         "account": "Account",
         "appName": "Mechanic Setu Partner App",
-        "version": "Version 1.0.0"
+        "version": "Version 1.0.0",
+        "clearCache": "Clear Cache",
+        "clearCacheSubtitle": "Free up space & fix issues",
+        "crashLogs": "Crash Logs",
+        "crashLogsSubtitle": "View app error reports",
+        "aboutApp": "About App Details",
+        "aboutAppSubtitle": "App info, Requirements & Permissions",
+        "clearCacheAlertTitle": "Clear Cache",
+        "clearCacheAlertBody": "This will clear temporary files and image cache. You will not be logged out.",
+        "cacheCleared": "Cache cleared successfully!",
+        "developerMode": "Developer Mode",
+        "developerModeBody": "You are now a developer! Hidden admin features are enabled in Profile."
+    },
+    "common": {
+        "success": "Success",
+        "error": "Error",
+        "cancel": "Cancel",
+        "clear": "Clear",
+        "confirm": "Confirm"
     },
     "about": {
         "title": "About Us",

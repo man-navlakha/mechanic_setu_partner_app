@@ -448,7 +448,7 @@ export default function Dashboard() {
                 initialIndex={0}
                 snapPoints={['30%', '45%', '85%']}
                 className="mt-20 bottom-2"
-                useScrollView={false} // <--- ADD THIS
+                useScrollView={true} // <--- ADD THIS
             >
                 {/* Status Display Row */}
                 <View className="flex-row justify-between items-center mb-6">

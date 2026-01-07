@@ -6,11 +6,10 @@ import {
     CheckCircle, ChevronRight,
     DollarSign,
     FileText,
-    Globe,
     History,
     LogOut,
-    Mail,
     MapPin,
+    Settings,
     Store,
     User,
     Users
@@ -196,22 +195,26 @@ export default function ProfileScreen() {
         </View>
     );
 
-    // Menu Button Card
-    const MenuCard = ({ icon, title, subtitle, onClick }) => (
+    // Modern List Item for new UI
+    const ListItem = ({ icon, title, subtitle, onClick, rightElement, isDark }) => (
         <TouchableOpacity
             onPress={onClick}
-            className=" p-4 rounded-2xl border-y border-slate-100 dark:border-slate-700 flex-row items-center mb-3"
+            activeOpacity={0.7}
+            className="flex-row items-center py-4 px-4 bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800"
         >
-            <View className={`p-2 mr-4`}>
+            <View className="mr-4 p-2 bg-slate-900 dark:bg-slate-700 rounded-full">
                 {icon}
             </View>
-            <View className="flex-1">
-                <Text className="font-bold text-slate-800 dark:text-slate-100 text-base">{title}</Text>
-                <Text className="text-slate-500 dark:text-slate-400 text-xs">{subtitle}</Text>
+            <View className="flex-1 justify-center">
+                <Text className="text-[16px] font-semibold text-slate-900 dark:text-slate-100">
+                    {title}
+                </Text>
+                {/* {subtitle && <Text className="text-[13px] text-slate-500 dark:text-slate-400 mt-0.5">{subtitle}</Text>} */}
             </View>
-            <ChevronRight size={20} color={isDark ? "#64748b" : "#cbd5e1"} />
+            {rightElement || <ChevronRight size={20} color="#cbd5e1" />}
         </TouchableOpacity>
     );
+
 
     // --- 4. SECTIONS ---
 
@@ -278,119 +281,134 @@ export default function ProfileScreen() {
     };
 
     const HomeOverview = () => (
-        <View>
-            {/* Profile Header Card */}
-            <View className="bg-white dark:bg-slate-800 p-6 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-700 mb-6 items-center">
+        <View className="flex-1">
+            {/* Header / Avatar Section */}
+            <View className="items-center py-6 bg-white dark:bg-slate-900 mb-4 px-4 pt-12">
+                <Text className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-6">
+                    Hello, {profileData?.first_name || 'Partner'}
+                </Text>
+
                 <View className="relative mb-4">
-                    <Image
-                        source={{ uri: profileData?.profile_pic || 'https://via.placeholder.com/150' }}
-                        className="w-24 h-24 rounded-full border-4 border-slate-50 dark:border-slate-700 bg-slate-200 dark:bg-slate-600"
-                    />
+                    {/* Ring Container */}
+                    <View className="w-32 h-32 rounded-full border-[6px] border-blue-100 dark:border-slate-800 items-center justify-center relative">
+                        {/* Progress Indicator (Simulated with partial border or just generic ring) */}
+                        <View className="absolute w-32 h-32 rounded-full border-[6px] border-l-blue-600 border-t-blue-600 border-r-transparent border-b-transparent transform rotate-45" />
+
+                        <Image
+                            source={{ uri: profileData?.profile_pic || 'https://via.placeholder.com/150' }}
+                            className="w-28 h-28 rounded-full bg-slate-200 dark:bg-slate-700"
+                        />
+                    </View>
                     {profileData?.is_verified && (
-                        <View className="absolute bottom-0 right-0 bg-green-500 p-1.5 rounded-full border-4 border-white dark:border-slate-800">
+                        <View className="absolute bottom-1 right-1 bg-green-500 p-1.5 rounded-full border-4 border-white dark:border-slate-900">
                             <CheckCircle size={16} color="white" />
                         </View>
                     )}
                 </View>
 
-                <Text className="text-2xl font-bold text-slate-900 dark:text-slate-100 text-center">
-                    {profileData?.first_name} {profileData?.last_name}
-                </Text>
-                <Text className="text-slate-500 dark:text-slate-400 text-sm flex-row items-center mt-1">
-                    <Mail size={12} color={isDark ? "#94a3b8" : "#64748b"} /> {profileData?.email}
-                </Text>
-
-                <View className={`mt-4 px-4 py-1.5 rounded-full ${profileData?.is_verified ? 'bg-green-100 dark:bg-green-900/30' : 'bg-yellow-100 dark:bg-yellow-900/30'}`}>
-                    <Text className={`text-xs font-bold ${profileData?.is_verified ? 'text-green-700 dark:text-green-400' : 'text-yellow-700 dark:text-yellow-400'}`}>
-                        {profileData?.is_verified ? t('profile.verified') : t('profile.pending')}
+                {/* Earnings / Target Text */}
+                <View className="flex-row items-end">
+                    <Text className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                        ₹{historyData?.statistics?.total_earnings || 0}
+                    </Text>
+                    <Text className="text-sm font-medium text-slate-400 dark:text-slate-500 mb-1 ml-1">
+                        / ₹10,000 Goal
                     </Text>
                 </View>
+                <Text className="text-xs text-slate-400 dark:text-slate-500 mt-1 uppercase tracking-wider font-bold">
+                    Total Earnings
+                </Text>
             </View>
 
-            <Text className="text-slate-900 dark:text-slate-100 font-bold text-lg mb-3 px-1">Manage Account</Text>
+            {/* List Menu Section */}
+            <View className="bg-white dark:bg-slate-900">
+                <Text className="px-6 py-2 text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 mt-2">Dashboard</Text>
 
-            <MenuCard
-                title={t('profile.personalInfo')}
-                subtitle={t('profile.personalInfoSubtitle')}
-                icon={<User size={24} color={isDark ? "#60a5fa" : "#2563eb"} />}
-                color="bg-blue-50"
-                darkColor="bg-blue-900/30"
-                onClick={() => setActiveSection('personalInfo')}
-            />
-            <MenuCard
-                title={t('profile.shopDetails')}
-                subtitle={t('profile.shopDetailsSubtitle')}
-                icon={<Store size={24} color={isDark ? "#4ade80" : "#16a34a"} />}
-                color="bg-green-50"
-                darkColor="bg-green-900/30"
-                onClick={() => setActiveSection('shopInfo')}
-            />
-            <MenuCard
-                title={t('profile.earnings')}
-                subtitle={t('profile.earningsSubtitle')}
-                icon={<DollarSign size={24} color={isDark ? "#fbbf24" : "#ca8a04"} />}
-                color="bg-yellow-50"
-                darkColor="bg-yellow-900/30"
-                onClick={() => setActiveSection('earnings')}
-            />
-            <MenuCard
-                title={t('profile.jobHistory')}
-                subtitle={t('profile.jobHistorySubtitle')}
-                icon={<History size={24} color={isDark ? "#c084fc" : "#9333ea"} />}
-                color="bg-purple-50"
-                darkColor="bg-purple-900/30"
-                onClick={() => setActiveSection('jobHistory')}
-            />
+                <ListItem
+                    title={t('profile.personalInfo')}
+                    subtitle="Contact & ID"
+                    icon={<User size={20} color="white" />}
+                    onClick={() => setActiveSection('personalInfo')}
+                    isDark={isDark}
+                />
+                <ListItem
+                    title={t('profile.shopDetails')}
+                    subtitle="Location & Store"
+                    icon={<Store size={20} color="white" />}
+                    onClick={() => setActiveSection('shopInfo')}
+                    isDark={isDark}
+                />
+                <ListItem
+                    title={t('profile.earnings')}
+                    subtitle="Stats & Charts"
+                    icon={<DollarSign size={20} color="white" />}
+                    onClick={() => setActiveSection('earnings')}
+                    isDark={isDark}
+                />
+                <ListItem
+                    title={t('profile.jobHistory')}
+                    subtitle="Past Orders"
+                    icon={<History size={20} color="white" />}
+                    onClick={() => setActiveSection('jobHistory')}
+                    isDark={isDark}
+                />
 
-            {/* VERSION FOOTER WITH HIDDEN ADMIN ACCESS */}
-            <TouchableOpacity
-                activeOpacity={1}
-                onPress={handleVersionTap}
-                className="mb-24 pb-12 items-center"
-            >
-                <Text className="text-slate-400 dark:text-slate-600 text-xs font-semibold">
-                    Version 1.6.3
-                </Text>
-            </TouchableOpacity>
+                <Text className="px-6 py-2 text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 mt-6">Settings</Text>
 
-            {/* HIDDEN ADMIN ACCESS */}
-            {showAdminUI && (
-                <View className="mt-4 px-4 items-center">
-                    <TouchableOpacity
-                        onPress={createAd}
-                        className="bg-purple-100 dark:bg-purple-900/30 px-6 py-3 rounded-full border border-purple-200 dark:border-purple-800 flex-row items-center active:bg-purple-200 dark:active:bg-purple-900/50"
-                    >
-                        <CheckCircle size={18} color={isDark ? "#d8b4fe" : "#9333ea"} className="mr-2" />
-                        <Text className="text-purple-700 dark:text-purple-300 font-bold text-sm">
-                            POST TEST AD (ADMIN)
-                        </Text>
-                    </TouchableOpacity>
+                <ListItem
+                    title="App settings"
+                    subtitle="General, Privacy"
+                    icon={<Settings size={20} color="white" />}
+                    onClick={() => router.push('/settings')} // Navigate to settings tab/screen
+                    isDark={isDark}
+                />
+                <ListItem
+                    title={t('profile.logout')}
+                    icon={<LogOut size={20} color="white" />}
+                    onClick={handleLogout}
+                    isDark={isDark}
+                />
 
-                    {/* ALSO SHOW EXISTING ADMIN VERIFY BUTTON IF ENABLED */}
-                    <TouchableOpacity
-                        onPress={() => router.push('/mechanic-verification')}
-                        className="mt-4 bg-red-50 dark:bg-red-900/30 px-6 py-3 rounded-full border border-red-200 dark:border-red-800 flex-row items-center active:bg-red-200 dark:active:bg-red-900/50"
-                    >
-                        <Users size={18} color={isDark ? "#fca5a5" : "#ef4444"} className="mr-2" />
-                        <Text className="text-red-700 dark:text-red-300 font-bold text-sm">
-                            VERIFY MECHANICS
-                        </Text>
-                    </TouchableOpacity>
-                </View>
-            )}
 
-            <TouchableOpacity
-                onPress={handleLogout}
-                className="mt-6 bg-red-50 dark:bg-red-900/30 p-4 rounded-2xl flex-row items-center justify-center border border-red-100 dark:border-red-800 active:bg-red-100 dark:active:bg-red-900/50"
-            >
-                <LogOut size={20} color={isDark ? "#f87171" : "#dc2626"} className="mr-2" />
-                <Text className="text-red-600 dark:text-red-400 font-bold text-base">{t('profile.logout')}</Text>
-            </TouchableOpacity>
+                {/* VERSION FOOTER WITH HIDDEN ADMIN ACCESS */}
+                <TouchableOpacity
+                    activeOpacity={1}
+                    onPress={handleVersionTap}
+                    className="py-12 items-center"
+                >
+                    <Text className="text-slate-300 dark:text-slate-700 text-xs font-semibold">
+                        Version 1.6.3
+                    </Text>
+                </TouchableOpacity>
+
+                {/* HIDDEN ADMIN ACCESS */}
+                {showAdminUI && (
+                    <View className="px-4 pb-8 items-center">
+                        <Text className="px-6 py-2 text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 mt-6">Admin Tools</Text>
+                        <ListItem
+                            title="POST TEST AD"
+                            subtitle="General, Privacy"
+                            icon={<CheckCircle size={20} color="white" />}
+                            onClick={createAd}
+                            isDark={isDark}
+                        />
+                        <ListItem
+                            title="VERIFY MECHANICS"
+                            subtitle="General, Privacy"
+                            icon={<Users size={20} color="white" />}
+                            onClick={() => router.push('/mechanic-verification')}
+                            isDark={isDark}
+                        />
+
+
+                    </View>
+                )}
+            </View>
         </View>
     );
 
     const PersonalInfo = () => (
-        <View className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm">
+        <View className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm mt-4">
             <InfoField label="Full Name" value={`${profileData.first_name} ${profileData.last_name}`} />
             <InfoField label="Email Address" value={profileData.email} />
             <InfoField label="Phone Number" value={profileData.mobile_number} />
@@ -417,7 +435,7 @@ export default function ProfileScreen() {
     );
 
     const ShopInfo = () => (
-        <View className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm">
+        <View className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm mt-4">
             <InfoField label={t('profile.shopName')} value={profileData.shop_name} />
             <InfoField label={t('profile.shopAddress')} value={profileData.shop_address} />
 
@@ -440,7 +458,7 @@ export default function ProfileScreen() {
     const EarningsSection = () => {
         const stats = historyData?.statistics;
         return (
-            <View>
+            <View className="mt-4">
                 <WeeklyChart history={historyData?.job_history || []} />
                 <View className="flex-row flex-wrap justify-between">
                     <View className="w-[48%] bg-green-50 dark:bg-green-900/30 p-5 rounded-2xl border border-green-100 dark:border-green-800 mb-4 items-center">
@@ -472,7 +490,7 @@ export default function ProfileScreen() {
     const JobHistoryList = () => {
         const jobs = historyData?.job_history || [];
         return (
-            <View>
+            <View className="mt-4">
                 {jobs.length === 0 ? (
                     <View className="items-center py-10">
                         <Text className="text-slate-400 dark:text-slate-500 font-medium">{t('profile.noHistory')}</Text>
@@ -509,41 +527,32 @@ export default function ProfileScreen() {
         <SafeAreaView className="flex-1 bg-slate-50 dark:bg-slate-900" edges={['top']}>
             <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
 
-            {/* Navbar */}
-            <View className="px-4 py-4 flex-row items-center border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800">
-                {/* Back button logic updated for Tab consistency */}
-                {activeSection !== 'home' ? (
+            {/* Navbar (Only show when drilling down, main profile view uses Hello header) */}
+            {activeSection !== 'home' && (
+                <View className="px-4 py-4 flex-row items-center border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800">
                     <TouchableOpacity onPress={handleGoBack} className="p-2 -ml-2 rounded-full active:bg-slate-100 dark:active:bg-slate-700">
                         <ArrowLeft size={24} color={isDark ? "#e2e8f0" : "#1e293b"} />
                     </TouchableOpacity>
-                ) : null}
 
-                <Text className={`text-xl font-bold text-slate-800 dark:text-slate-100 flex-1 ${activeSection === 'home' ? 'ml-0' : 'ml-2'}`}>
-                    {activeSection === 'home' ? t('profile.title') :
-                        activeSection === 'personalInfo' ? t('profile.personalInfo') :
+                    <Text className="text-xl font-bold text-slate-800 dark:text-slate-100 flex-1 ml-2">
+                        {activeSection === 'personalInfo' ? t('profile.personalInfo') :
                             activeSection === 'shopInfo' ? t('profile.shopDetails') :
                                 activeSection === 'earnings' ? t('profile.earnings') : t('profile.jobHistory')}
-                </Text>
-
-                {activeSection === 'home' && (
-                    <TouchableOpacity
-                        onPress={() => setShowLanguageModal(true)}
-                        className="p-2 bg-slate-100 dark:bg-slate-700 rounded-full"
-                    >
-                        <Globe size={20} color={isDark ? "#94a3b8" : "#475569"} />
-                    </TouchableOpacity>
-                )}
-            </View>
+                    </Text>
+                </View>
+            )}
 
             {/* Content Area */}
-            <ScrollView className="flex-1 p-4" showsVerticalScrollIndicator={false}>
+            <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
                 {activeSection === 'home' && <HomeOverview />}
-                {activeSection === 'personalInfo' && <PersonalInfo />}
-                {activeSection === 'shopInfo' && <ShopInfo />}
-                {activeSection === 'earnings' && <EarningsSection />}
-                {activeSection === 'jobHistory' && <JobHistoryList />}
+                <View className="px-4">
+                    {activeSection === 'personalInfo' && <PersonalInfo />}
+                    {activeSection === 'shopInfo' && <ShopInfo />}
+                    {activeSection === 'earnings' && <EarningsSection />}
+                    {activeSection === 'jobHistory' && <JobHistoryList />}
+                </View>
+
                 <View style={{ height: 80 + insets.bottom }} />
-                {/* Extra padding for Tabs */}
             </ScrollView>
 
             <LanguageModal

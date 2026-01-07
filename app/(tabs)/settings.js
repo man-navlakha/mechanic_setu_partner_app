@@ -25,28 +25,28 @@ export default function SettingsScreen() {
         setTapCount(newCount);
         if (newCount === 7) {
             await AsyncStorage.setItem('admin_mode', 'true');
-            Alert.alert("Developer Mode", "You are now a developer! Hidden admin features are enabled in Profile.");
+            Alert.alert(t('settings.developerMode'), t('settings.developerModeBody'));
         }
     };
 
     const handleClearCache = async () => {
         Alert.alert(
-            "Clear Cache",
-            "This will clear temporary files and image cache. You will not be logged out.",
+            t('settings.clearCacheAlertTitle'),
+            t('settings.clearCacheAlertBody'),
             [
-                { text: "Cancel", style: "cancel" },
+                { text: t('common.cancel'), style: "cancel" },
                 {
-                    text: "Clear",
+                    text: t('common.clear'),
                     style: "destructive",
                     onPress: async () => {
                         try {
                             // Attempt to clear image cache if supported
                             if (Image.clearDiskCache) await Image.clearDiskCache();
                             if (Image.clearMemoryCache) await Image.clearMemoryCache();
-                            Alert.alert("Success", "Cache cleared successfully!");
+                            Alert.alert(t('common.success'), t('settings.cacheCleared'));
                         } catch (e) {
                             console.log("Cache clear error:", e);
-                            Alert.alert("Success", "Cache cleared successfully!"); // Fail gracefully
+                            Alert.alert(t('common.success'), t('settings.cacheCleared')); // Fail gracefully
                         }
                     }
                 }
@@ -56,7 +56,7 @@ export default function SettingsScreen() {
 
     const handleLogout = async () => {
         Alert.alert(t('profile.logout'), t('profile.logoutConfirm'), [
-            { text: t('profile.cancel'), style: "cancel" },
+            { text: t('common.cancel'), style: "cancel" },
             {
                 text: t('profile.logout'),
                 style: "destructive",
@@ -68,94 +68,108 @@ export default function SettingsScreen() {
         ]);
     };
 
-    const SettingItem = ({ icon, title, subtitle, onPress, rightElement }) => (
+    const SettingItem = ({ icon, title, subtitle, onPress, rightElement, isDestructive }) => (
         <TouchableOpacity
             onPress={onPress}
             activeOpacity={0.7}
-            className="flex-row items-center p-2 mb-3 border-y rounded-3xl border-[#00000020] dark:border-[#ffffff20]"
+            className="flex-row items-center py-4 px-4 bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800"
         >
-            <View className={`p-3 mr-4 `}>
+            <View className="mr-4">
                 {icon}
             </View>
-            <View className="flex-1">
-                <Text className="text-base font-bold text-slate-900 dark:text-slate-100">{title}</Text>
-                {subtitle && <Text className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{subtitle}</Text>}
+            <View className="flex-1 justify-center">
+                <Text className={`text-[17px] font-medium ${isDestructive ? 'text-red-600 dark:text-red-400' : 'text-slate-900 dark:text-slate-100'}`}>
+                    {title}
+                </Text>
+                {subtitle && <Text className="text-[13px] text-slate-500 dark:text-slate-400 mt-0.5">{subtitle}</Text>}
             </View>
-            {rightElement || <ChevronRight size={20} color={isDark ? "#64748b" : "#cbd5e1"} />}
+            {rightElement || <ChevronRight size={20} color="#cbd5e1" />}
         </TouchableOpacity>
     );
 
     return (
-        <SafeAreaView className="flex-1 bg-slate-50 dark:bg-slate-900" edges={['top']}>
+        <SafeAreaView className="flex-1 bg-white dark:bg-slate-900">
             <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
 
-            <View className="px-4 py-4 bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700">
-                <Text className="text-xl font-bold text-slate-900 dark:text-slate-100">{t('settings.title')}</Text>
+            {/* Header */}
+            <View className="flex-row items-center justify-center py-3 border-b border-slate-100 dark:border-slate-800">
+                <Text className="text-[18px] font-bold text-slate-900 dark:text-white">{t('settings.title')}</Text>
             </View>
 
-            <View className="p-4 flex-1">
-                <Text className="text-slate-500 dark:text-slate-400 font-bold uppercase text-xs mb-3 ml-1">{t('settings.preferences')}</Text>
+            <View className="flex-1">
+                {/* ScrollView for list content */}
+                <View>
+                    <Text className="px-4 py-3 text-sm font-semibold text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-900/50 uppercase tracking-wide">
+                        {t('settings.preferences')}
+                    </Text>
 
-                <SettingItem
-                    icon={<Globe size={24} color={isDark ? "#60a5fa" : "#2563eb"} />}
-                    title={t('settings.language')}
-                    subtitle={t('settings.changeLanguage')}
-                    onPress={() => setShowLanguageModal(true)}
-                />
+                    <SettingItem
+                        icon={<Globe size={22} color={isDark ? "#e2e8f0" : "#1e293b"} strokeWidth={1.5} />}
+                        title={t('settings.language')}
+                        onPress={() => setShowLanguageModal(true)}
+                    />
 
-                <SettingItem
-                    icon={<Trash2 size={24} color={isDark ? "#f87171" : "#ef4444"} />}
-                    title="Clear Cache"
-                    subtitle="Free up space & fix issues"
-                    onPress={handleClearCache}
-                />
+                    <SettingItem
+                        icon={isDark ? <Moon size={22} color="#e2e8f0" strokeWidth={1.5} /> : <Sun size={22} color="#1e293b" strokeWidth={1.5} />}
+                        title={t('settings.darkMode')}
+                        onPress={toggleColorScheme}
+                        rightElement={
+                            <Switch
+                                value={isDark}
+                                onValueChange={toggleColorScheme}
+                                trackColor={{ false: "#e2e8f0", true: "#818cf8" }}
+                                thumbColor={"#ffffff"}
+                                ios_backgroundColor="#e2e8f0"
+                            />
+                        }
+                    />
+                </View>
 
-                <SettingItem
-                    icon={<AlertTriangle size={24} color={isDark ? "#fbbf24" : "#d97706"} />}
-                    title="Crash Logs"
-                    subtitle="View app error reports"
-                    onPress={() => router.push('/crash-logs')}
-                />
+                <View className="mt-4">
+                    <Text className="px-4 py-3 text-sm font-semibold text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-900/50 uppercase tracking-wide">
+                        Maintenance
+                    </Text>
 
-                <SettingItem
-                    icon={<Info size={24} color={isDark ? "#34d399" : "#10b981"} />}
-                    title="About App Details" // Changed from 'About Us' or translation key
-                    subtitle="App info, Requirements & Permissions" // More descriptive subtitle
-                    onPress={() => router.push('/about')}
-                />
+                    <SettingItem
+                        icon={<Trash2 size={22} color={isDark ? "#e2e8f0" : "#1e293b"} strokeWidth={1.5} />}
+                        title={t('settings.clearCache')}
+                        onPress={handleClearCache}
+                    />
 
-                <SettingItem
-                    icon={isDark ? <Moon size={24} color="#a78bfa" /> : <Sun size={24} color="#f59e0b" />}
-                    title={t('settings.darkMode')}
-                    subtitle={isDark ? t('settings.darkModeOn') : t('settings.lightModeOn')}
-                    onPress={toggleColorScheme}
-                    rightElement={
-                        <Switch
-                            value={isDark}
-                            onValueChange={toggleColorScheme}
-                            trackColor={{ false: "#cbd5e1", true: "#818cf8" }}
-                            thumbColor={isDark ? "#ffffff" : "#f4f4f5"}
-                        />
-                    }
-                />
+                    <SettingItem
+                        icon={<AlertTriangle size={22} color={isDark ? "#e2e8f0" : "#1e293b"} strokeWidth={1.5} />}
+                        title={t('settings.crashLogs')}
+                        onPress={() => router.push('/crash-logs')}
+                    />
+                </View>
 
-                <Text className="text-slate-500 dark:text-slate-400 font-bold uppercase text-xs mb-3 ml-1 mt-6">{t('settings.account')}</Text>
+                <View className="mt-4">
+                    <Text className="px-4 py-3 text-sm font-semibold text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-900/50 uppercase tracking-wide">
+                        {t('settings.account')}
+                    </Text>
+                    <SettingItem
+                        icon={<Info size={22} color={isDark ? "#e2e8f0" : "#1e293b"} strokeWidth={1.5} />}
+                        title={t('settings.aboutApp')}
+                        onPress={() => router.push('/about')}
+                    />
 
-                <TouchableOpacity
-                    onPress={handleLogout}
-                    className="mt-2 bg-red-50 dark:bg-red-900/30 p-4 rounded-2xl flex-row items-center justify-center border border-red-100 dark:border-red-800 active:bg-red-100 dark:active:bg-red-900/50"
-                >
-                    <LogOut size={20} color={isDark ? "#f87171" : "#dc2626"} className="mr-2" />
-                    <Text className="text-red-600 dark:text-red-400 font-bold text-base">{t('profile.logout')}</Text>
-                </TouchableOpacity>
+                    <SettingItem
+                        icon={<LogOut size={22} color="#dc2626" strokeWidth={1.5} />}
+                        title={t('profile.logout')}
+                        onPress={handleLogout}
+                        isDestructive
+                        rightElement={<View />} // Empty view to hide chevron
+                    />
+                </View>
 
-                <View className="mt-auto items-center pb-4" style={{ paddingBottom: 80 + insets.bottom }}>
-                    <Text className="text-slate-400 text-xs">{t('settings.appName')}</Text>
+                <View className="mt-auto items-center py-8">
+                    <Text className="text-slate-400 text-xs text-center">{t('settings.appName')}</Text>
                     <TouchableOpacity activeOpacity={1} onPress={handleVersionTap}>
-                        <Text className="text-slate-400 text-xs">{t('settings.version')}</Text>
+                        <Text className="text-slate-400 text-xs text-center mt-1">{t('settings.version')}</Text>
                     </TouchableOpacity>
                 </View>
             </View>
+
             <LanguageModal
                 visible={showLanguageModal}
                 onClose={() => setShowLanguageModal(false)}
