@@ -9,13 +9,13 @@ import { useColorScheme } from 'nativewind';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, Image, Linking, Modal, Platform, Pressable, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import Animated, {
     useAnimatedStyle,
     useSharedValue,
     withTiming
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import MapView, { Marker, PROVIDER_GOOGLE } from '../components/AppMapView';
 
 import DraggableBottomSheet from '../components/DraggableBottomSheet';
 import LanguageModal from '../components/LanguageModal';

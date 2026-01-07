@@ -1,6 +1,5 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import * as SecureStore from 'expo-secure-store';
 import { ArrowRight, Globe, Lock, Mail } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -9,6 +8,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import LanguageModal from '../components/LanguageModal';
 import { useAuth } from '../context/AuthContext';
 import api from '../utils/api';
+import safeStorage from '../utils/storage';
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -62,7 +62,7 @@ export default function LoginScreen() {
       }
 
       if (cookie) {
-        await SecureStore.setItemAsync('session_cookie', cookie);
+        await safeStorage.setItem('session_cookie', cookie);
       }
 
       router.push({
@@ -178,7 +178,7 @@ export default function LoginScreen() {
                 {/* Debug Button - keep for now */}
                 <TouchableOpacity
                   onPress={async () => {
-                    const cookie = await import('expo-secure-store').then(s => s.getItemAsync('session_cookie'));
+                    const cookie = await safeStorage.getItem('session_cookie');
                     Alert.alert("Debug Info", `Cookie present: ${!!cookie}`);
                   }}
                   style={{ alignSelf: 'center', marginBottom: 12, backgroundColor: '#f1f5f9', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 9999 }}

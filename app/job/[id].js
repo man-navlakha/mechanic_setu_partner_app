@@ -24,9 +24,9 @@ import {
     View
 } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import QRCode from 'react-native-qrcode-svg';
 import Animated, { FadeIn, useAnimatedStyle, useSharedValue, withTiming, ZoomIn } from 'react-native-reanimated';
+import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from '../../components/AppMapView';
 import { useAuth } from '../../context/AuthContext';
 import { useLocationContext } from '../../context/LocationContext';
 import { useWebSocket } from '../../context/WebSocketContext';
@@ -278,7 +278,8 @@ export default function JobDetailsPage() {
         const label = "Customer Location";
         const url = Platform.select({
             ios: `maps:0,0?q=${label}@${lat},${lng}`,
-            android: `geo:0,0?q=${lat},${lng}(${label})`
+            android: `geo:0,0?q=${lat},${lng}(${label})`,
+            web: `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`
         });
         Linking.openURL(url);
         // Switch purely to "Arriving" state UI
@@ -452,6 +453,7 @@ export default function JobDetailsPage() {
 
             <View className="flex-1 bg-white">
                 {/* --- 1. MAP --- */}
+                {/* --- 1. MAP (Only visible before Arrival) --- */}
                 {/* --- 1. MAP (Only visible before Arrival) --- */}
                 {!hasArrived ? (
                     <MapView

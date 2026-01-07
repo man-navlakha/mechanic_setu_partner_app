@@ -1,6 +1,6 @@
-import * as SecureStore from 'expo-secure-store';
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import api, { setSessionCookie } from '../utils/api';
+import safeStorage from '../utils/storage';
 
 const AuthContext = createContext({});
 
@@ -35,7 +35,7 @@ export function AuthProvider({ children }) {
             setError(null);
 
             // Check for saved session (we save user data directly as fallback)
-            const savedUserData = await SecureStore.getItemAsync('user_data');
+            const savedUserData = await safeStorage.getItem('user_data');
             console.log("[Auth] Checking saved user data:", savedUserData ? "Found" : "Missing");
 
             if (savedUserData) {
@@ -116,7 +116,7 @@ export function AuthProvider({ children }) {
 
         // Save User Data for Persistence (CRITICAL FIX)
         if (userData) {
-            await SecureStore.setItemAsync('user_data', JSON.stringify(userData));
+            await safeStorage.setItem('user_data', JSON.stringify(userData));
         }
 
         if (cookieString) {
@@ -131,8 +131,8 @@ export function AuthProvider({ children }) {
         console.log("[Auth] Logging out...");
         setUser(null);
         setProfile(null);
-        await SecureStore.deleteItemAsync('session_cookie');
-        await SecureStore.deleteItemAsync('user_data');
+        await safeStorage.deleteItem('session_cookie');
+        await safeStorage.deleteItem('user_data');
     };
 
     const value = React.useMemo(() => ({
