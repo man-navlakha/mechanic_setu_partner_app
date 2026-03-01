@@ -1,9 +1,19 @@
 import axios from 'axios';
 import { router } from 'expo-router';
 import * as SecureStore from 'expo-secure-store';
+import safeStorage from './storage';
 
 // Update with your production URL or local IP
-const BASE_URL = 'https://mechanic-setu.onrender.com/api/';
+const BASE_URL = 'https://mechanic-setu-backend.vercel.app/api/';
+const NODE_API_HOST = 'mechanic-setu-int0.onrender.com';
+const ACCESS_TOKEN_KEY = 'access';
+const REFRESH_TOKEN_KEY = 'refresh';
+
+const isNodeRequest = (config) => {
+    const url = config?.url || '';
+    const baseURL = config?.baseURL || '';
+    return url.includes(NODE_API_HOST) || baseURL.includes(NODE_API_HOST);
+};
 
 const api = axios.create({
     baseURL: BASE_URL,
@@ -64,6 +74,13 @@ api.interceptors.request.use(
                 const csrfMatch = cookieString.match(/csrftoken=([^;]+)/);
                 if (csrfMatch && csrfMatch[1]) {
                     config.headers['X-CSRFToken'] = csrfMatch[1];
+                }
+            }
+
+            if (isNodeRequest(config)) {
+                const accessToken = await safeStorage.getItem(ACCESS_TOKEN_KEY);
+                if (accessToken) {
+                    config.headers.Authorization = `Bearer ${accessToken}`;
                 }
             }
         } catch (error) {
@@ -128,6 +145,16 @@ api.interceptors.response.use(
 
                 console.log("[API] Token refreshed successfully");
 
+                const newAccessToken = refreshResponse.data?.access || refreshResponse.data?.access_token;
+                const newRefreshToken = refreshResponse.data?.refresh || refreshResponse.data?.refresh_token;
+
+                if (newAccessToken) {
+                    await safeStorage.setItem(ACCESS_TOKEN_KEY, newAccessToken);
+                }
+                if (newRefreshToken) {
+                    await safeStorage.setItem(REFRESH_TOKEN_KEY, newRefreshToken);
+                }
+
                 // Get new cookie from response
                 const setCookie = refreshResponse.headers['set-cookie'];
                 let newCookie = null;
@@ -163,6 +190,8 @@ api.interceptors.response.use(
                 // Clear Cache and Disk
                 await setSessionCookie(null);
                 await SecureStore.deleteItemAsync('user_data');
+                await safeStorage.deleteItem(ACCESS_TOKEN_KEY);
+                await safeStorage.deleteItem(REFRESH_TOKEN_KEY);
 
                 if (router) {
                     router.replace('/login');

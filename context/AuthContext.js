@@ -87,7 +87,7 @@ export function AuthProvider({ children }) {
     const fetchProfile = async () => {
         try {
             console.log("[Auth] Fetching MechanicProfile...");
-            const res = await api.get('/Profile/MechanicProfile/');
+            const res = await api.get('https://mechanic-setu-int0.onrender.com/api/Profile/MechanicProfile/');
             console.log("[Auth] Profile res:", res.status);
 
             if (res.data && res.data.mobile_number) {
@@ -133,6 +133,8 @@ export function AuthProvider({ children }) {
         setProfile(null);
         await safeStorage.deleteItem('session_cookie');
         await safeStorage.deleteItem('user_data');
+        await safeStorage.deleteItem('access');
+        await safeStorage.deleteItem('refresh');
     };
 
     const value = React.useMemo(() => ({

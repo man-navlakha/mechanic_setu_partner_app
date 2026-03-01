@@ -336,7 +336,7 @@ export default function JobDetailsPage() {
         setLoadingAction(true);
         try {
             // Some backends require an empty object for POST requests to ensure Content-Type headers are set correctly
-            await api.post(`/jobs/MechanicArrived/${currentJob.id}/`, {});
+            await api.post(`https://mechanic-setu-int0.onrender.com/api/jobs/MechanicArrived/${currentJob.id}/`, {});
             await AsyncStorage.setItem(`arrived_${currentJob.id}`, 'true');
             Alert.alert("Success", "Customer has been notified that you have arrived.");
             setHasArrived(true); // Update state to remove map and show completion options

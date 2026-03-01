@@ -3,431 +3,393 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ArrowLeft, Globe } from 'lucide-react-native';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView, StatusBar, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import {
+    ActivityIndicator,
+    Alert,
+    KeyboardAvoidingView,
+    Platform,
+    ScrollView,
+    StatusBar,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import LanguageModal from '../components/LanguageModal';
 import { useAuth } from '../context/AuthContext';
 import api from '../utils/api';
+import safeStorage from '../utils/storage';
 
 export default function VerifyScreen() {
-    const { login } = useAuth();
-    const router = useRouter();
-    const { t } = useTranslation();
-    const params = useLocalSearchParams();
+  const { login } = useAuth();
+  const router = useRouter();
+  const { t } = useTranslation();
+  const params = useLocalSearchParams();
 
-    // State Management
-    const [showLanguageModal, setShowLanguageModal] = useState(false);
-    const [otp, setOtp] = useState(new Array(6).fill(''));
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState('');
-    const [focusedIndex, setFocusedIndex] = useState(-1);
+  const [showLanguageModal, setShowLanguageModal] = useState(false);
+  const [otp, setOtp] = useState(new Array(6).fill(''));
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [focusedIndex, setFocusedIndex] = useState(-1);
 
-    // Timer State
-    const [timer, setTimer] = useState(10);
-    const [isResendDisabled, setIsResendDisabled] = useState(true);
-    const [isInvalidUser, setIsInvalidUser] = useState(false);
+  const [timer, setTimer] = useState(10);
+  const [isResendDisabled, setIsResendDisabled] = useState(true);
+  const [isInvalidUser, setIsInvalidUser] = useState(false);
 
-    // Refs
-    const inputRefs = useRef([]);
+  const inputRefs = useRef([]);
 
-    // Context
-    const [ctx, setCtx] = useState({
-        key: params.key || null,
-        id: params.id || null,
-        status: params.status || null,
-        email: params.email || null,
-    });
+  const [ctx, setCtx] = useState({
+    key: params.key || null,
+    id: params.id || null,
+    status: params.status || null,
+    email: params.email || null
+  });
 
+  /* ---------------- Timer Logic ---------------- */
+  useEffect(() => {
+    let interval;
+    if (isResendDisabled && timer > 0) {
+      interval = setInterval(() => {
+        setTimer((prev) => prev - 1);
+      }, 1000);
+    } else if (timer === 0) {
+      setIsResendDisabled(false);
+    }
+    return () => clearInterval(interval);
+  }, [isResendDisabled, timer]);
 
+  /* ---------------- OTP Logic ---------------- */
 
-
-    // Timer Logic
-    useEffect(() => {
-        let interval;
-        if (isResendDisabled && timer > 0) {
-            interval = setInterval(() => {
-                setTimer((prev) => prev - 1);
-            }, 1000);
-        } else if (timer === 0) {
-            setIsResendDisabled(false);
-        }
-        return () => clearInterval(interval);
-    }, [isResendDisabled, timer]);
-
-    const handleChange = (text, index) => {
-        // 1. Handle Pasting (if text length > 1)
-        if (text.length > 1) {
-            const pastedData = text.trim().slice(0, 6); // Take first 6 chars
-            if (/^\d+$/.test(pastedData)) { // Check if it's only numbers
-                const newOtp = [...otp];
-                pastedData.split('').forEach((char, i) => {
-                    if (i < 6) newOtp[i] = char;
-                });
-                setOtp(newOtp);
-
-                // Focus the last filled box or the next empty one
-                const nextFocusIndex = pastedData.length < 6 ? pastedData.length : 5;
-                inputRefs.current[nextFocusIndex]?.focus();
-            }
-            return;
-        }
-
-        // 2. Handle Normal Single Character Input
-        if (isNaN(text)) return;
+  const handleChange = (text, index) => {
+    if (text.length > 1) {
+      const pasted = text.trim().slice(0, 6);
+      if (/^\d+$/.test(pasted)) {
         const newOtp = [...otp];
-        newOtp[index] = text;
+        pasted.split('').forEach((char, i) => {
+          if (i < 6) newOtp[i] = char;
+        });
         setOtp(newOtp);
+        inputRefs.current[Math.min(pasted.length, 5)]?.focus();
+      }
+      return;
+    }
 
-        if (text.length === 1 && index < 5) {
-            inputRefs.current[index + 1]?.focus();
-        }
-    };
+    if (isNaN(text)) return;
 
-    const handleKeyPress = (e, index) => {
-        if (e.nativeEvent.key === 'Backspace') {
-            if (!otp[index] && index > 0) {
-                inputRefs.current[index - 1]?.focus();
-                const newOtp = [...otp];
-                newOtp[index - 1] = '';
-                setOtp(newOtp);
-            }
-        }
-    };
+    const newOtp = [...otp];
+    newOtp[index] = text;
+    setOtp(newOtp);
 
-    const verifyOtp = async () => {
-        setError('');
-        const code = otp.join('');
+    if (text && index < 5) {
+      inputRefs.current[index + 1]?.focus();
+    }
+  };
 
-        if (code.length !== 6) {
-            setError('Please enter the full 6-digit code.');
-            return;
-        }
+  const handleKeyPress = (e, index) => {
+    if (e.nativeEvent.key === 'Backspace') {
+      if (!otp[index] && index > 0) {
+        inputRefs.current[index - 1]?.focus();
+      }
+    }
+  };
 
-        setLoading(true);
-        try {
-            const payload = {
-                key: ctx.key,
-                id: ctx.id,
-                otp: code
-            };
+  /* ---------------- Verify OTP ---------------- */
 
-            const verifyRes = await api.post('users/otp-verify/', payload);
+  const verifyOtp = async () => {
+    setError('');
+    const code = otp.join('');
 
+    if (code.length !== 6) {
+      setError('Enter full 6-digit code.');
+      return;
+    }
 
-            // Extract the cookie from headers
-            let newCookie = verifyRes.headers['set-cookie'];
-            if (Array.isArray(newCookie)) {
-                newCookie = newCookie.join('; ');
-            }
+    setLoading(true);
 
-            // CLEANUP: Don't call SecureStore.setItemAsync here. 
-            // Just pass the cookie to the login function.
-            await login(
-                { id: ctx.id, status: ctx.status },
-                newCookie || null
-            );
+    try {
+      const res = await api.post('users/otp-verify/', {
+        key: ctx.key,
+        id: ctx.id,
+        otp: code
+      });
 
-            if (ctx.status === 'New User') {
-                router.replace('/form');
-            } else {
-                router.replace('/dashboard');
-            }
+      const data = res?.data || {};
+      const access =
+        data.access || data.access_token || data?.tokens?.access;
+      const refresh =
+        data.refresh || data.refresh_token || data?.tokens?.refresh;
 
-        } catch (err) {
-            // This now correctly catches errors from both the API and the login function
-            console.error('[Verify] Error:', err.message || err);
+      if (access) await safeStorage.setItem('access', access);
+      if (refresh) await safeStorage.setItem('refresh', refresh);
 
-            const status = err.response?.status;
-            const data = err.response?.data;
+      await login(
+        { id: ctx.id, status: ctx.status },
+        null
+      );
 
-            console.error('[Verify] URL:', err.config?.url);
-            console.error('[Verify] Status:', status);
+      if (ctx.status === 'New User') {
+        router.replace('/form');
+      } else {
+        router.replace('/dashboard');
+      }
+    } catch (err) {
+      const status = err.response?.status;
+      const data = err.response?.data;
 
-            if (status === 404 && data?.error) {
-                // If user is already active/not found, guide them to login
-                setIsInvalidUser(true);
-                Alert.alert("Notice", data.error, [
-                    { text: "Go to Login", onPress: () => router.replace('/login') }
-                ]);
-                setError(data.error);
-            } else {
-                setError('Verification failed. Please try again.');
-            }
-        } finally {
-            setLoading(false);
-        }
-    };
+      if (status === 404 && data?.error) {
+        setIsInvalidUser(true);
+        Alert.alert("Notice", data.error, [
+          { text: "Go to Login", onPress: () => router.replace('/login') }
+        ]);
+      } else {
+        setError('Verification failed. Try again.');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    const resendOtp = async () => {
-        if (isResendDisabled) return;
-        setError('');
-        setLoading(true);
+  /* ---------------- Resend OTP ---------------- */
 
-        console.log('[Verify] Resending OTP...');
-        console.log('[Verify] Context:', JSON.stringify(ctx, null, 2));
+  const resendOtp = async () => {
+    if (isResendDisabled) return;
 
-        try {
-            const url = 'users/resend-otp/';
-            console.log('[Verify] POSTing to:', api.defaults.baseURL + url);
+    setLoading(true);
+    setError('');
 
-            const res = await api.post(url, { key: ctx.key, id: ctx.id });
+    try {
+      const res = await api.post('users/resend-otp/', {
+        key: ctx.key,
+        id: ctx.id
+      });
 
-            console.log('[Verify] Success:', res.data);
-            if (res.data.key) setCtx(prev => ({ ...prev, key: res.data.key }));
-            if (res.data.id) setCtx(prev => ({ ...prev, id: res.data.id }));
-            console.log(res.data);
+      if (res.data.key) setCtx(prev => ({ ...prev, key: res.data.key }));
+      if (res.data.id) setCtx(prev => ({ ...prev, id: res.data.id }));
 
-            Alert.alert("Sent!", "A new code has been sent to your email.");
-            setIsResendDisabled(true);
-            setTimer(120);
-            setOtp(new Array(6).fill(''));
-            inputRefs.current[0]?.focus();
+      Alert.alert("Sent!", "New code sent to your email.");
 
-        } catch (err) {
-            console.error('[Verify] Resend FAILED');
-            const status = err.response?.status;
-            const data = err.response?.data;
-            console.error('[Verify] Status:', status);
-            console.error('[Verify] Data:', JSON.stringify(data, null, 2));
+      setIsResendDisabled(true);
+      setTimer(120);
+      setOtp(new Array(6).fill(''));
+      inputRefs.current[0]?.focus();
 
-            if (status === 404 && data?.error) {
-                setIsInvalidUser(true);
-                Alert.alert("Notice", data.error, [
-                    { text: "Go to Login", onPress: () => router.replace('/login') }
-                ]);
-                setError(data.error);
-            } else {
-                setError('Could not resend code. Try again later.');
-            }
-        } finally {
-            setLoading(false);
-        }
-    };
+    } catch {
+      setError('Could not resend code.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    const formatTime = (seconds) => {
-        const m = Math.floor(seconds / 60);
-        const s = seconds % 60;
-        return `${m}:${s < 10 ? '0' : ''}${s}`;
-    };
+  const formatTime = (seconds) => {
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return `${m}:${s < 10 ? '0' : ''}${s}`;
+  };
 
-    return (
-        <LinearGradient
-            colors={['#f8fafc', '#e2e8f0', '#cbd5e1']}
-            style={{ flex: 1 }}
+  /* =================== UI =================== */
+
+  return (
+    <LinearGradient
+      colors={['#0f172a', '#1e293b', '#0f172a']}
+      style={{ flex: 1 }}
+    >
+      <SafeAreaView style={{ flex: 1 }}>
+        <StatusBar barStyle="light-content" />
+
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={{ flex: 1, paddingHorizontal: 24 }}
         >
-            <SafeAreaView style={{ flex: 1 }}>
-                <StatusBar barStyle="dark-content" />
-                <KeyboardAvoidingView
-                    behavior={Platform.OS === "ios" ? "padding" : "height"}
-                    style={{ flex: 1, paddingHorizontal: 24 }}
-                >
-                    {/* Back Button */}
-                    <TouchableOpacity
-                        onPress={() => router.back()}
-                        style={{
-                            marginTop: 16,
-                            marginBottom: 32,
-                            backgroundColor: 'rgba(255,255,255,0.8)',
-                            width: 40,
-                            height: 40,
-                            borderRadius: 20,
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            elevation: 2
-                        }}
-                    >
-                        <ArrowLeft color="#334155" size={22} />
-                    </TouchableOpacity>
+          {/* Back Button */}
+          <TouchableOpacity
+            onPress={() => router.back()}
+            style={{
+              marginTop: 16,
+              width: 40,
+              height: 40,
+              borderRadius: 12,
+              backgroundColor: '#111827',
+              borderWidth: 1,
+              borderColor: '#334155',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+          >
+            <ArrowLeft color="#f8fafc" size={20} />
+          </TouchableOpacity>
 
-                    {/* Language Switcher */}
-                    <View style={{ position: 'absolute', top: 16, right: 24, zIndex: 50 }}>
-                        <TouchableOpacity
-                            onPress={() => setShowLanguageModal(true)}
-                            style={{
-                                backgroundColor: 'rgba(255,255,255,0.8)',
-                                padding: 10,
-                                borderRadius: 9999,
-                                borderWidth: 1,
-                                borderColor: '#e2e8f0',
-                                elevation: 5
-                            }}
-                        >
-                            <Globe size={22} color="#475569" />
-                        </TouchableOpacity>
-                    </View>
+          {/* Language */}
+          <View style={{ position: 'absolute', top: 16, right: 0 }}>
+            <TouchableOpacity
+              onPress={() => setShowLanguageModal(true)}
+              style={{
+                backgroundColor: '#111827',
+                padding: 10,
+                borderRadius: 12,
+                borderWidth: 1,
+                borderColor: '#334155'
+              }}
+            >
+              <Globe size={20} color="#f8fafc" />
+            </TouchableOpacity>
+          </View>
 
-                    <ScrollView showsVerticalScrollIndicator={false}>
-                        {/* Header */}
-                        <View style={{ alignItems: 'center', marginBottom: 40 }}>
-                            <View style={{
-                                backgroundColor: '#e0f2fe',
-                                width: 80,
-                                height: 80,
-                                borderRadius: 40,
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                marginBottom: 20
-                            }}>
-                                <Text style={{ fontSize: 36 }}>📧</Text>
-                            </View>
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={{ paddingTop: 40 }}
+          >
+            {/* Header */}
+            <View style={{ alignItems: 'center', marginBottom: 40 }}>
+              <Text style={{
+                fontSize: 26,
+                fontWeight: '800',
+                color: '#f8fafc',
+                textAlign: 'center'
+              }}>
+                {t('verify.Verification')}
+              </Text>
 
-                            <Text style={{ fontSize: 28, fontWeight: '800', color: '#1e293b', marginBottom: 8, textAlign: 'center' }}>
-                                {t('verify.Verification')}
-                            </Text>
-                            <Text style={{ color: '#64748b', textAlign: 'center', fontSize: 16, paddingHorizontal: 32 }}>
-                                {t('verify.WeveSent')}
-                            </Text>
-                            {ctx.email && (
-                                <View style={{
-                                    backgroundColor: '#e0f2fe',
-                                    paddingHorizontal: 20,
-                                    paddingVertical: 8,
-                                    borderRadius: 9999,
-                                    marginTop: 16,
-                                    borderWidth: 1,
-                                    borderColor: '#bae6fd'
-                                }}>
-                                    <Text style={{ color: '#0369a1', fontWeight: '600' }}>{ctx.email}</Text>
-                                </View>
-                            )}
-                        </View>
+              <Text style={{
+                color: '#94a3b8',
+                textAlign: 'center',
+                marginTop: 8
+              }}>
+                {t('verify.WeveSent')}
+              </Text>
 
-                        {/* OTP Input Container */}
-                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 32, paddingHorizontal: 8 }}>
-                            {otp.map((digit, index) => {
-                                const isFocused = focusedIndex === index;
-                                let borderColor = '#cbd5e1';
-                                if (error) borderColor = '#ef4444';
-                                else if (isFocused) borderColor = '#3b82f6';
-                                else if (digit) borderColor = '#1e293b';
+              {ctx.email && (
+                <View style={{
+                  backgroundColor: '#111827',
+                  paddingHorizontal: 16,
+                  paddingVertical: 6,
+                  borderRadius: 12,
+                  marginTop: 16,
+                  borderWidth: 1,
+                  borderColor: '#334155'
+                }}>
+                  <Text style={{ color: '#f97316', fontWeight: '600' }}>
+                    {ctx.email}
+                  </Text>
+                </View>
+              )}
+            </View>
 
-                                return (
-                                    <TextInput
-                                        key={index}
-                                        ref={(ref) => inputRefs.current[index] = ref}
-                                        value={digit}
-                                        onChangeText={(text) => handleChange(text, index)}
-                                        onKeyPress={(e) => handleKeyPress(e, index)}
-                                        onFocus={() => setFocusedIndex(index)}
-                                        onBlur={() => setFocusedIndex(-1)}
-                                        keyboardType="number-pad"
-                                        maxLength={index === focusedIndex ? 6 : 1}
-                                        selectTextOnFocus
-                                        style={{
-                                            width: 45,
-                                            height: 56,
-                                            borderRadius: 12,
-                                            textAlign: 'center',
-                                            fontSize: 24,
-                                            fontWeight: 'bold',
-                                            borderWidth: 2,
-                                            borderColor: borderColor,
-                                            backgroundColor: error ? '#fef2f2' : (isFocused ? '#eff6ff' : 'white'),
-                                            color: error ? '#dc2626' : (isFocused ? '#2563eb' : '#1e293b'),
-                                            elevation: isFocused ? 4 : 0,
-                                            shadowColor: isFocused ? '#3b82f6' : 'transparent',
-                                            shadowOffset: { width: 0, height: 2 },
-                                            shadowOpacity: 0.25,
-                                            shadowRadius: 4
-                                        }}
-                                    />
-                                )
-                            })}
-                        </View>
+            {/* OTP Boxes */}
+            <View style={{
+              flexDirection: 'row',
+              justifyContent: 'space-between',
+              marginBottom: 30
+            }}>
+              {otp.map((digit, index) => {
+                const isFocused = focusedIndex === index;
 
-                        {/* Error Message */}
-                        {error ? (
-                            <View style={{ backgroundColor: '#fef2f2', borderLeftWidth: 4, borderLeftColor: '#ef4444', padding: 16, marginBottom: 20, borderRadius: 8 }}>
-                                <Text style={{ color: '#dc2626', fontWeight: '500', textAlign: 'center' }}>
-                                    {error}
-                                </Text>
-                            </View>
-                        ) : null}
+                return (
+                  <TextInput
+                    key={index}
+                    ref={(ref) => inputRefs.current[index] = ref}
+                    value={digit}
+                    onChangeText={(text) => handleChange(text, index)}
+                    onKeyPress={(e) => handleKeyPress(e, index)}
+                    onFocus={() => setFocusedIndex(index)}
+                    onBlur={() => setFocusedIndex(-1)}
+                    keyboardType="number-pad"
+                    maxLength={1}
+                    style={{
+                      width: 45,
+                      height: 55,
+                      borderRadius: 12,
+                      textAlign: 'center',
+                      fontSize: 22,
+                      fontWeight: 'bold',
+                      backgroundColor: '#0f172a',
+                      borderWidth: 1,
+                      borderColor: error
+                        ? '#ef4444'
+                        : isFocused
+                        ? '#f97316'
+                        : '#334155',
+                      color: '#f8fafc'
+                    }}
+                  />
+                );
+              })}
+            </View>
 
-                        {/* Timer & Resend */}
-                        {!isInvalidUser && (
-                            <View style={{ alignItems: 'center', marginBottom: 32 }}>
-                                {isResendDisabled ? (
-                                    <View style={{ backgroundColor: '#f1f5f9', paddingHorizontal: 20, paddingVertical: 12, borderRadius: 9999 }}>
-                                        <Text style={{ color: '#64748b' }}>
-                                            {t('verify.Resend code in')} <Text style={{ fontWeight: 'bold', color: '#334155' }}>{formatTime(timer)}</Text>
-                                        </Text>
-                                    </View>
-                                ) : (
-                                    <TouchableOpacity
-                                        onPress={resendOtp}
-                                        style={{
-                                            backgroundColor: '#eff6ff',
-                                            paddingHorizontal: 24,
-                                            paddingVertical: 12,
-                                            borderRadius: 9999,
-                                            borderWidth: 1,
-                                            borderColor: '#bfdbfe'
-                                        }}
-                                    >
-                                        <Text style={{ color: '#2563eb', fontWeight: 'bold', fontSize: 16 }}>{t('verify.Resend code')}</Text>
-                                    </TouchableOpacity>
-                                )}
-                            </View>
-                        )}
+            {error ? (
+              <Text style={{
+                color: '#f87171',
+                textAlign: 'center',
+                marginBottom: 20
+              }}>
+                {error}
+              </Text>
+            ) : null}
 
-                        {isInvalidUser && (
-                            <View style={{ alignItems: 'center', marginBottom: 32 }}>
-                                <TouchableOpacity
-                                    onPress={() => router.replace('/login')}
-                                    style={{
-                                        backgroundColor: '#eff6ff',
-                                        paddingHorizontal: 24,
-                                        paddingVertical: 12,
-                                        borderRadius: 9999,
-                                        borderWidth: 1,
-                                        borderColor: '#bfdbfe'
-                                    }}
-                                >
-                                    <Text style={{ color: '#2563eb', fontWeight: 'bold', fontSize: 16 }}>Go to Login</Text>
-                                </TouchableOpacity>
-                            </View>
-                        )}
+            {/* Resend */}
+            {!isInvalidUser && (
+              <View style={{ alignItems: 'center', marginBottom: 30 }}>
+                {isResendDisabled ? (
+                  <Text style={{ color: '#94a3b8' }}>
+                    Resend in {formatTime(timer)}
+                  </Text>
+                ) : (
+                  <TouchableOpacity onPress={resendOtp}>
+                    <Text style={{
+                      color: '#f97316',
+                      fontWeight: '600'
+                    }}>
+                      Resend Code
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            )}
 
-                        {/* Verify Button */}
-                        <TouchableOpacity
-                            onPress={verifyOtp}
-                            disabled={loading || otp.join('').length !== 6}
-                            style={{
-                                width: '100%',
-                                paddingVertical: 16,
-                                borderRadius: 16,
-                                alignItems: 'center',
-                                backgroundColor: (loading || otp.join('').length !== 6) ? '#cbd5e1' : '#2563eb',
-                                elevation: (loading || otp.join('').length !== 6) ? 0 : 6,
-                                shadowColor: '#3b82f6',
-                                shadowOffset: { width: 0, height: 4 },
-                                shadowOpacity: 0.3,
-                                shadowRadius: 8
-                            }}
-                        >
-                            {loading ? (
-                                <ActivityIndicator color="white" />
-                            ) : (
-                                <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 18 }}>{t('verify.Verify & Proceed')}</Text>
-                            )}
-                        </TouchableOpacity>
+            {/* Verify Button */}
+            <TouchableOpacity
+              onPress={verifyOtp}
+              disabled={loading || otp.join('').length !== 6}
+              style={{
+                backgroundColor:
+                  otp.join('').length === 6
+                    ? '#f97316'
+                    : '#475569',
+                paddingVertical: 16,
+                borderRadius: 12,
+                alignItems: 'center'
+              }}
+            >
+              {loading ? (
+                <ActivityIndicator color="#0f172a" />
+              ) : (
+                <Text style={{
+                  color: '#0f172a',
+                  fontWeight: '800',
+                  fontSize: 16
+                }}>
+                  {t('verify.Verify & Proceed')}
+                </Text>
+              )}
+            </TouchableOpacity>
 
-                        {/* Security Note */}
-                        <View style={{ marginTop: 32, marginBottom: 20, alignItems: 'center' }}>
-                            <Text style={{ color: '#94a3b8', fontSize: 12 }}>
-                                🔒 Your verification is secure and encrypted
-                            </Text>
-                        </View>
+            <Text style={{
+              textAlign: 'center',
+              color: '#64748b',
+              marginTop: 30,
+              fontSize: 12
+            }}>
+              🔒 Secure & encrypted verification
+            </Text>
 
-                        <LanguageModal
-                            visible={showLanguageModal}
-                            onClose={() => setShowLanguageModal(false)}
-                        />
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </SafeAreaView>
 
-                    </ScrollView>
-                </KeyboardAvoidingView>
-            </SafeAreaView>
-        </LinearGradient>
-    );
+      <LanguageModal
+        visible={showLanguageModal}
+        onClose={() => setShowLanguageModal(false)}
+      />
+    </LinearGradient>
+  );
 }

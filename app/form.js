@@ -9,6 +9,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../context/AuthContext';
 import api from '../utils/api';
 
+const NODE_API_BASE = 'https://mechanic-setu-int0.onrender.com/api';
+
 export default function MechanicForm() {
     const router = useRouter();
     const params = useLocalSearchParams();
@@ -130,7 +132,7 @@ export default function MechanicForm() {
             }
 
             // 1. Send Data to Backend
-            await api.post('/users/SetMechanicDetail/', data, {
+            await api.post(`${NODE_API_BASE}/users/SetMechanicDetail/`, data, {
                 headers: { 'Content-Type': 'multipart/form-data' }
             });
 

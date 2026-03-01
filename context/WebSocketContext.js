@@ -4,6 +4,7 @@ import { router } from 'expo-router';
 import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { Alert, AppState } from 'react-native';
 import api from '../utils/api';
+import safeStorage from '../utils/storage';
 import { useAuth } from './AuthContext';
 import { useLocationContext } from './LocationContext';
 
@@ -16,6 +17,7 @@ try {
 }
 
 const WebSocketContext = createContext(null);
+const NODE_API_BASE = 'https://mechanic-setu-int0.onrender.com/api';
 
 export const useWebSocket = () => {
     const ctx = useContext(WebSocketContext);
@@ -381,7 +383,7 @@ export const WebSocketProvider = ({ children }) => {
             console.log("[WS] Checking for Active/Pending Jobs...");
 
             // 1. Check for Active/Pending Jobs
-            const syncRes = await api.get("/jobs/SyncActiveJob/");
+            const syncRes = await api.get(`${NODE_API_BASE}/jobs/SyncActiveJob/`);
 
             // Check if we actually have a valid job object
             if (syncRes.data && syncRes.data.id && syncRes.data.status) {
@@ -436,7 +438,7 @@ export const WebSocketProvider = ({ children }) => {
     };
     const updateStatus = async (status) => {
         try {
-            await api.put("/jobs/UpdateMechanicStatus/", { status });
+            await api.put(`${NODE_API_BASE}/jobs/UpdateMechanicStatus/`, { status });
         } catch (error) {
             console.error("[STATUS] Update failed:", error);
         }
@@ -457,12 +459,13 @@ export const WebSocketProvider = ({ children }) => {
             isConnectingRef.current = true;
             setConnectionStatus('connecting');
 
-            const res = await api.get("core/ws-token/");
-            const wsToken = res?.data?.ws_token;
-            if (!wsToken) throw new Error("No WS Token received");
+            const accessToken = await safeStorage.getItem('access');
+            if (!accessToken) {
+                throw new Error("Access token missing. Please login again.");
+            }
 
-            const HOST = 'mechanic-setu.onrender.com';
-            const wsUrl = `wss://${HOST}/ws/job_notifications/?token=${wsToken}`;
+            const HOST = 'mechanic-setu-int0.onrender.com';
+            const wsUrl = `wss://${HOST}/ws/job_notifications/?token=${encodeURIComponent(accessToken)}`;
 
             console.log("[WS] Connecting:", wsUrl);
             const ws = new WebSocket(wsUrl);
@@ -635,7 +638,7 @@ export const WebSocketProvider = ({ children }) => {
 
         try {
             console.log(`[JOB] Accepting Job ID: ${jobId}`);
-            const res = await api.post(`/jobs/AcceptServiceRequest/${jobId}/`);
+            const res = await api.post(`${NODE_API_BASE}/jobs/AcceptServiceRequest/${jobId}/`);
 
             let acceptedJob = res.data.job;
             // Fallback if backend doesn't return full job
@@ -705,7 +708,7 @@ export const WebSocketProvider = ({ children }) => {
 
     const completeJob = async (jobId, price) => {
         try {
-            await api.post(`/jobs/CompleteServiceRequest/${jobId}/`, { price });
+            await api.post(`${NODE_API_BASE}/jobs/CompleteServiceRequest/${jobId}/`, { price });
             Alert.alert("Success", "Job Completed!");
             setJob(null);
             updateStatus("ONLINE");
@@ -717,7 +720,7 @@ export const WebSocketProvider = ({ children }) => {
 
     const cancelJob = async (jobId, reason) => {
         try {
-            await api.post(`/jobs/CancelServiceRequest/${jobId}/`, { cancellation_reason: reason });
+            await api.post(`${NODE_API_BASE}/jobs/CancelServiceRequest/${jobId}/`, { cancellation_reason: reason });
             Alert.alert("Cancelled", "Job has been cancelled.");
             setJob(null);
             updateStatus("ONLINE");
