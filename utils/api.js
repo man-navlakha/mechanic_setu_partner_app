@@ -3,8 +3,8 @@ import { router } from 'expo-router';
 import * as SecureStore from 'expo-secure-store';
 import safeStorage from './storage';
 
-// Update with your production URL or local IP
-const BASE_URL = 'https://mechanic-setu-backend.vercel.app/api/';
+const EXPO_API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL;
+const BASE_URL = (EXPO_API_BASE_URL || 'http://localhost:3000/api').replace(/\/$/, '');
 const NODE_API_HOST = 'mechanic-setu-int0.onrender.com';
 const ACCESS_TOKEN_KEY = 'access';
 const REFRESH_TOKEN_KEY = 'refresh';
@@ -41,6 +41,31 @@ export const setSessionCookie = async (cookie) => {
 // Flags to avoid loops
 let isRefreshing = false;
 let refreshSubscribers = [];
+
+const logApiError = (error, label = 'REQUEST_FAILED') => {
+    const config = error?.config || {};
+    const method = (config.method || 'GET').toUpperCase();
+    const baseURL = config.baseURL || '';
+    const url = config.url || 'unknown-url';
+    const fullUrl = `${baseURL}${url}`;
+    const writeLog = console.log;
+
+    if (error?.response) {
+        const { status, data } = error.response;
+        writeLog(`[API] ${label} | ${method} ${fullUrl} | STATUS ${status}`);
+        if (data) {
+            writeLog('[API] Response Data:', typeof data === 'string' ? data : JSON.stringify(data));
+        }
+    } else if (error?.request) {
+        const isTimeout = error.code === 'ECONNABORTED';
+        const reason = isTimeout ? 'TIMEOUT' : 'NO_RESPONSE';
+        writeLog(`[API] ${label} | ${method} ${fullUrl} | ${reason}`);
+        writeLog('[API] Message:', error.message || 'No message');
+    } else {
+        console.error(`[API] ${label} | ${method} ${fullUrl} | CLIENT_ERROR`);
+        console.error('[API] Message:', error?.message || 'Unknown error');
+    }
+};
 
 // Retry queued requests after refresh
 function onRefreshed() {
@@ -98,10 +123,7 @@ api.interceptors.response.use(
     },
     async (error) => {
         const originalRequest = error.config;
-
-        if (!error.response) {
-            console.log(`[API] ERROR (Network/Other) ${originalRequest?.url}:`, error.message);
-        }
+        logApiError(error);
 
         const isRefreshRequest = originalRequest?.url?.includes("token/refresh/");
 
@@ -184,7 +206,7 @@ api.interceptors.response.use(
                 return api(originalRequest);
 
             } catch (refreshError) {
-                console.error("Token refresh failed:", refreshError);
+                logApiError(refreshError, 'TOKEN_REFRESH_FAILED');
                 isRefreshing = false;
 
                 // Clear Cache and Disk

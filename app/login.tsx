@@ -4,18 +4,18 @@ import { ArrowRight, Globe, Mail } from 'lucide-react-native';
 import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
-  ActivityIndicator,
-  Alert,
-  Animated,
-  Image,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  StatusBar,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View
+    ActivityIndicator,
+    Alert,
+    Animated,
+    Image,
+    KeyboardAvoidingView,
+    Platform,
+    ScrollView,
+    StatusBar,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import LanguageModal from '../components/LanguageModal';
@@ -32,7 +32,10 @@ try {
   GoogleSignin = googleModule.GoogleSignin;
   GoogleSigninButton = googleModule.GoogleSigninButton;
   statusCodes = googleModule.statusCodes;
-} catch (e) {}
+} catch (e) {
+  const message = e instanceof Error ? e.message : String(e);
+  console.warn('[Google] Native module not available:', message);
+}
 
 const GOOGLE_WEB_CLIENT_ID =
   process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID ||
@@ -72,8 +75,15 @@ export default function LoginScreen() {
   }, []);
 
   useEffect(() => {
-    if (!isGoogleNativeAvailable) return;
+    if (!isGoogleNativeAvailable) {
+      console.warn('[Google] Native module not available. Requires custom dev build.');
+      return;
+    }
 
+    console.log('[Google] Configuring Google Sign-In', {
+      hasWebClientId: Boolean(GOOGLE_WEB_CLIENT_ID),
+      hasIosClientId: Boolean(GOOGLE_IOS_CLIENT_ID)
+    });
     GoogleSignin.configure({
       webClientId: GOOGLE_WEB_CLIENT_ID,
       iosClientId: GOOGLE_IOS_CLIENT_ID,
@@ -134,8 +144,22 @@ export default function LoginScreen() {
         }
       });
     } catch (err: any) {
+      const fallbackData = err?.response?.data;
+      if (fallbackData?.key && fallbackData?.id) {
+        router.push({
+          pathname: '/verify',
+          params: {
+            key: fallbackData.key,
+            id: fallbackData.id,
+            email
+          }
+        });
+        return;
+      }
+
+      const smtpError = fallbackData?.delivery?.error;
       const message =
-        err?.res?.data?.error || t('error.connection');
+        fallbackData?.error || smtpError || t('error.connection');
       setError(message);
       Alert.alert('Error', message);
     } finally {
@@ -144,11 +168,16 @@ export default function LoginScreen() {
   };
 
   const handleGoogleLogin = async () => {
+    console.log('[Google] Login start', {
+      nativeAvailable: isGoogleNativeAvailable,
+      platform: Platform.OS
+    });
     try {
       setGoogleLoading(true);
       setError('');
 
       if (!isGoogleNativeAvailable) {
+        console.warn('[Google] Google Sign-In unavailable. Expo Go or no dev build.');
         Alert.alert(
           'Google Login Unavailable',
           'Requires custom dev build.'
@@ -156,19 +185,32 @@ export default function LoginScreen() {
         return;
       }
 
+      console.log('[Google] Checking Play Services...');
       await GoogleSignin.hasPlayServices();
-      await GoogleSignin.signOut().catch(() => {});
+      await GoogleSignin.signOut().catch((err: any) => {
+        console.warn('[Google] SignOut ignored:', err?.message || err);
+      });
 
+      console.log('[Google] Calling GoogleSignin.signIn()');
       const signInResponse = await GoogleSignin.signIn();
+      console.log('[Google] signInResponse', {
+        hasIdToken: Boolean(signInResponse?.idToken),
+        keys: Object.keys(signInResponse || {})
+      });
       const idToken = signInResponse?.idToken;
 
       if (!idToken) throw new Error('No ID token.');
 
+      console.log('[Google] Exchanging idToken with backend...');
       const res = await api.post('/users/google/', {
         id_token: idToken
       });
 
       const data = res?.data || {};
+      console.log('[Google] Backend response', {
+        status: res?.status,
+        keys: Object.keys(data)
+      });
       const access =
         data.access || data.access_token || data?.tokens?.access;
       const refresh =
@@ -178,8 +220,15 @@ export default function LoginScreen() {
       if (refresh) await safeStorage.setItem('refresh', refresh);
 
       await login(data.user || data, null);
+      console.log('[Google] Login success, routing to tabs.');
       router.replace('/(tabs)');
     } catch (err: any) {
+      console.error('[Google] Login error', {
+        message: err?.message,
+        code: err?.code,
+        status: err?.response?.status,
+        data: err?.response?.data
+      });
       const message =
         err?.response?.data?.detail ||
         err?.message ||
@@ -243,7 +292,7 @@ export default function LoginScreen() {
                 <View
                   style={{
                     backgroundColor: '#111827',
-                    padding: 16,
+                    padding: 3,
                     borderRadius: 20,
                     borderWidth: 1,
                     borderColor: '#334155'
@@ -251,7 +300,7 @@ export default function LoginScreen() {
                 >
                   <Image
                     source={require('../assets/logo.png')}
-                    style={{ width: 80, height: 80 }}
+                    style={{ width: 110, height: 110, resizeMode: 'contain' }}
                   />
                 </View>
 

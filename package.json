@@ -1,21 +1,22 @@
 {
   "name": "mechanic-setu-mobile",
-  "main": "expo-router/entry",
+  "main": "index.js",
   "version": "1.0.0",
   "scripts": {
-    "start": "expo start",
+    "start": "react-native start",
     "reset-project": "node ./scripts/reset-project.js",
-    "android": "expo run:android",
-    "ios": "expo run:ios",
+    "android": "npx react-native run-android",
+    "ios": "npx react-native run-ios",
     "web": "expo start --web",
     "web:build": "expo export -p web",
-    "lint": "expo lint"
+    "lint": "eslint ."
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",
     "@gorhom/bottom-sheet": "^5.2.8",
     "@notifee/react-native": "^9.1.8",
     "@react-native-async-storage/async-storage": "2.2.0",
+    "@react-native-community/cli": "^20.1.2",
     "@react-native-google-signin/google-signin": "^16.1.2",
     "@react-navigation/bottom-tabs": "^7.4.0",
     "@react-navigation/elements": "^2.6.3",
@@ -69,6 +70,7 @@
   },
   "devDependencies": {
     "@types/react": "~19.1.0",
+    "@react-native/metro-config": "^0.81.0",
     "eslint": "^9.25.0",
     "eslint-config-expo": "~10.0.0",
     "typescript": "~5.9.2"

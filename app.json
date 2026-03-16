@@ -9,7 +9,15 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Setu Partner uses your location to find nearby service jobs and navigate to customers.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Setu Partner uses your location in the background to share live mechanic tracking during active jobs.",
+        "NSLocationAlwaysUsageDescription": "Setu Partner uses your location in the background to share live mechanic tracking during active jobs.",
+        "UIBackgroundModes": [
+          "location"
+        ]
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -70,7 +78,10 @@
       [
         "expo-location",
         {
-          "isAndroidBackgroundLocationEnabled": true
+          "isAndroidBackgroundLocationEnabled": true,
+          "isIosBackgroundLocationEnabled": true,
+          "locationWhenInUsePermission": "Setu Partner uses your location to find nearby service jobs and navigate to customers.",
+          "locationAlwaysAndWhenInUsePermission": "Setu Partner uses your location in the background to share live mechanic tracking during active jobs."
         }
       ],
       "expo-secure-store",

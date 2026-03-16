@@ -1,0 +1,356 @@
+Below is a fully rewritten, expanded, legally-structured, production-ready Terms & Conditions page for Mechanic Setu, created from your content but rewritten professionally and extended for:
+✅ Google Play Store compliance
+✅ Indian legal structure (DPDP + IT Act aligned)
+✅ Marketplace liability protection (VERY important for you)
+✅ Startup + investor ready documentation
+✅ Web + Mobile App usage
+✅ Long-form legal page (stronger than typical startup T&C)
+You can directly use this as your /terms-and-conditions page.
+
+Terms and Conditions for Mechanic Setu
+Effective Date: [Insert Effective Date]
+Last Updated: [Insert Last Updated Date]
+
+1. Introduction
+Welcome to Mechanic Setu.
+These Terms and Conditions (“Terms”) constitute a legally binding agreement between you (“User”, “Customer”, “Mechanic”, “Service Partner”, or “you”) and Mechanic Setu (“Company”, “Platform”, “we”, “our”, or “us”) governing your access to and use of:
+Mechanic Setu mobile applications
+Mechanic Setu web platform
+APIs, services, and related technologies
+By accessing, registering, or using the Platform, you acknowledge that you have read, understood, and agreed to these Terms.
+If you do not agree with these Terms, you must not use the Platform.
+
+2. Platform Overview
+Mechanic Setu operates as a technology-enabled intermediary platform connecting:
+Individuals seeking vehicle repair or roadside assistance (“Customers”)
+Independent automotive professionals (“Mechanics” or “Service Partners”)
+Important Clarification
+Mechanic Setu:
+❌ Does not provide vehicle repair services directly
+❌ Does not employ mechanics
+❌ Does not control repair execution
+Mechanics operate as independent service providers responsible for their own services.
+The Platform only facilitates discovery, communication, and service coordination.
+
+3. Eligibility
+To use Mechanic Setu:
+You must be at least 18 years old.
+You must possess legal capacity under Indian law.
+Information provided must be accurate and lawful.
+We reserve the right to refuse service to anyone violating eligibility requirements.
+
+4. Account Registration and Security
+4.1 Account Creation
+Users may register using:
+Mobile OTP authentication
+Email verification
+Google OAuth login (where available)
+You agree to provide:
+Accurate name
+Valid mobile number
+Authentic contact details
+
+4.2 Account Responsibility
+You are responsible for:
+Maintaining device security
+Protecting OTPs and login credentials
+Activities conducted under your account
+Mechanic Setu uses secure authentication technologies including:
+JSON Web Tokens (JWT)
+Secure cookies
+Session validation mechanisms
+You must immediately notify us of unauthorized account access.
+
+5. Vehicle Registration Certificate (RC) Data Usage
+The Platform allows users to retrieve vehicle information using registration numbers.
+5.1 Third-Party Data Sources
+Vehicle data may be fetched through authorized external APIs connected to government or licensed databases.
+Data may include:
+Owner details
+Insurance status
+Pollution compliance
+Vehicle specifications
+Mechanic Setu does not guarantee accuracy or uptime of third-party services.
+
+5.2 Authorized Use Declaration
+By searching or saving vehicle data, you confirm:
+You are the lawful owner, OR
+You possess permission from the vehicle owner.
+Unauthorized usage, scraping, or misuse is strictly prohibited.
+
+6. Terms for Customers (Users)
+6.1 Service Requests
+When requesting services, you agree to provide:
+Correct vehicle category
+Accurate problem description
+Precise GPS location
+Honest service details
+Providing misleading information may result in account restrictions.
+
+6.2 Safety Obligations
+Customers must ensure:
+A reasonably safe inspection environment
+No threatening or abusive behavior toward Mechanics
+
+6.3 Payments
+Customers agree to pay:
+Service charges
+Inspection or call-out fees
+Additional agreed repair costs
+Payments may occur:
+Directly with Mechanics, or
+Through approved platform payment systems.
+
+6.4 Cancellations
+Customers may cancel requests; however:
+Repeated unjustified cancellations
+Abuse of emergency services
+may result in suspension or limitations.
+
+7. Terms for Mechanics (Service Partners)
+7.1 Verification (KYC Requirement)
+To join as a Service Partner, Mechanics must submit:
+Aadhaar identification
+Shop details
+Contact information
+Required verification documents
+Mechanic Setu reserves the right to approve, reject, or re-verify accounts.
+
+7.2 Independent Contractor Status
+Mechanics acknowledge they are:
+Independent professionals
+Not employees, agents, or representatives of Mechanic Setu.
+Mechanics are solely responsible for:
+Work quality
+Legal compliance
+Taxes and licenses
+
+7.3 Background Location Tracking (Critical Requirement)
+By enabling availability or accepting jobs, Mechanics consent to:
+Live GPS tracking
+Background location tracking when app is minimized
+This enables:
+Job routing
+Customer ETA visibility
+Fraud prevention
+Service safety monitoring
+Tracking stops when availability is disabled.
+
+7.4 Service Standards
+Mechanics agree to:
+Perform services professionally
+Use lawful tools and methods
+Avoid misleading pricing practices
+Maintain respectful conduct
+Repeated complaints may lead to suspension.
+
+7.5 Earnings and Platform Fees
+The Platform may track:
+Jobs completed
+Monthly earnings
+Performance metrics
+Applicable commissions or fees will follow the Service Partner Agreement.
+
+8. Location Services
+Mechanic Setu relies heavily on GPS data.
+Customers
+Location is shared with assigned mechanics during active service.
+Mechanics
+Live location may be shared with customers during service execution.
+For data handling details, refer to the Privacy Policy.
+
+9. Platform Usage Rules
+Users agree NOT to:
+Use the platform for illegal activities
+Harass or threaten others
+Upload false information
+Attempt system hacking or reverse engineering
+Misuse vehicle data access features
+Violation may result in immediate termination.
+
+10. Disclaimers
+10.1 Platform Availability
+The Platform is provided on an:
+“AS IS” and “AS AVAILABLE” basis
+We do not guarantee:
+Continuous availability
+Error-free operation
+GPS accuracy
+Third-party API uptime
+
+10.2 No Service Guarantee
+KYC verification does not constitute endorsement.
+Mechanic Setu does not guarantee:
+Repair outcomes
+Pricing fairness
+Service quality
+All services are agreements between Customer and Mechanic.
+
+11. Limitation of Liability
+To the maximum extent permitted by Indian law, Mechanic Setu shall not be liable for:
+Vehicle damage
+Personal injury
+Service disputes
+Loss of profits
+Data loss
+Delays due to network or GPS issues
+Our total liability shall not exceed any platform fee paid for the specific transaction.
+
+12. Dispute Resolution Between Users and Mechanics
+Disputes arising from services must primarily be resolved between the Customer and Mechanic.
+Mechanic Setu may assist mediation but is not obligated to resolve disputes.
+
+13. Intellectual Property Rights
+All Platform elements including:
+Source code
+Design systems
+Logos
+Databases
+Algorithms
+UI/UX elements
+are exclusive property of Mechanic Setu.
+Unauthorized copying, reproduction, or reverse engineering is prohibited.
+
+14. Account Suspension and Termination
+We may suspend or terminate accounts for:
+Policy violations
+Fraud suspicion
+Abuse of services
+Legal compliance requirements
+Upon termination:
+Platform access ends immediately.
+Data handling follows Privacy Policy provisions.
+
+15. Data Protection Reference
+Your personal data is processed according to our Privacy Policy.
+By using the Platform, you consent to such processing.
+
+16. Modifications to Terms
+We may update these Terms periodically.
+Material changes will be communicated via:
+Email notifications
+In-app announcements
+Website updates
+Continued use constitutes acceptance.
+
+17. Governing Law and Jurisdiction
+These Terms are governed by the laws of India.
+All disputes shall fall under the exclusive jurisdiction of courts located in:
+Ahmedabad, Gujarat, India.
+
+18. Force Majeure
+Mechanic Setu shall not be liable for failure or delay caused by events beyond reasonable control, including:
+Natural disasters
+Internet outages
+Government actions
+Technical infrastructure failures
+
+19. Contact Information
+For legal inquiries or support:
+Mechanic Setu Support Team
+Email: [Insert Support Email]
+Address: [Insert Registered Business Address]
+Ahmedabad, Gujarat, India
+
+20. Acceptance of Terms
+By creating an account or using Mechanic Setu, you confirm that:
+You have read these Terms.
+You understand your responsibilities.
+You agree to comply with all provisions.
+
+21. Refunds, Pricing and Cancellation Policy
+Mechanic Setu acts solely as an intermediary platform facilitating service connections between Customers and Mechanics.
+21.1 Pricing Transparency
+Service pricing may be determined by the Mechanic based on inspection, vehicle condition, and required repairs.
+Prices shown on the Platform may represent estimates and are not final quotations unless explicitly confirmed.
+21.2 Payments
+Customers agree to pay all applicable charges upon completion of service, including:
+Inspection or visit charges
+Repair costs
+Spare part costs (if applicable)
+Platform service fees (where applicable)
+
+21.3 Refund Eligibility
+Refunds may be considered only in limited circumstances such as:
+Duplicate payment
+Failed service where no inspection occurred
+Verified technical error caused by the Platform
+Mechanic Setu is not responsible for refund disputes arising from service quality disagreements unless payment was processed directly through the Platform.
+
+21.4 Cancellation Rules
+Customers may cancel service requests; however:
+Repeated cancellations may result in restrictions.
+Cancellation after mechanic arrival may incur a visit fee.
+Mechanics repeatedly canceling accepted jobs may face reduced visibility or suspension.
+
+22. Safety Disclaimer
+Mechanic Setu prioritizes user safety but does not supervise physical services.
+Users acknowledge:
+Vehicle repairs involve inherent mechanical risks.
+Mechanics operate independently.
+Customers must exercise reasonable judgment when interacting with service partners.
+Mechanic Setu is not liable for injuries, accidents, or damages occurring during service interactions.
+
+23. Emergency and Roadside Assistance Disclaimer
+Mechanic Setu provides a connection platform, not emergency rescue services.
+We do not guarantee:
+Immediate response times
+Availability of nearby mechanics
+Emergency-grade rescue capabilities
+Users should contact official emergency services where necessary.
+
+24. Mechanic Liability and Responsibility
+Service Partners agree that they are solely responsible for:
+Repair decisions
+Tools and equipment used
+Spare parts installed
+Compliance with local laws and safety standards
+Mechanic Setu does not assume liability for:
+Improper repairs
+Mechanical failures
+Warranty disputes
+Post-service damages.
+
+25. Ratings, Reviews and Platform Reputation
+Users may submit ratings and feedback.
+You agree that reviews must:
+Be truthful
+Not defamatory
+Not abusive or misleading
+Mechanic Setu reserves the right to remove reviews that violate community standards.
+
+26. Fraud Prevention and Platform Monitoring
+To maintain trust and safety, Mechanic Setu may monitor platform activity including:
+Suspicious login behavior
+Fake service requests
+Payment manipulation
+Unauthorized RC data access
+Accounts involved in suspected fraud may be suspended pending investigation.
+
+27. Electronic Communications Consent
+By using the Platform, you consent to receiving electronic communications including:
+OTP authentication messages
+Service notifications
+Policy updates
+Security alerts
+These communications form part of your contractual relationship with Mechanic Setu.
+
+28. Data Usage Reference
+All personal data handling practices are governed by the Mechanic Setu Privacy Policy.
+By agreeing to these Terms, you acknowledge that you have reviewed the Privacy Policy.
+
+29. Severability
+If any provision of these Terms is found invalid or unenforceable under applicable law, the remaining provisions shall continue in full force and effect.
+
+30. Entire Agreement
+These Terms, together with the Privacy Policy and any additional agreements, constitute the entire agreement between you and Mechanic Setu regarding Platform usage.
+They supersede all prior communications or agreements.
+
+31. Grievance Redressal Mechanism (India Compliance)
+In accordance with Indian law, users may raise complaints regarding services or platform conduct.
+Grievance Officer — Mechanic Setu
+Email: mechanicsetu+support@gmail.com
+Location: Ahmedabad, Gujarat, India
+We aim to acknowledge grievances within reasonable timelines as required under applicable regulations.
+
+

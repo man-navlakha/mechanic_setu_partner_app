@@ -1,3 +1,4 @@
+import Constants from 'expo-constants';
 import * as Location from 'expo-location';
 import * as TaskManager from 'expo-task-manager';
 import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
@@ -31,6 +32,8 @@ export const LocationProvider = ({ children }) => {
     const [coords, setCoords] = useState(null);
     const latestCoordsRef = useRef(null);
     const [isHighAccuracy, setIsHighAccuracy] = useState(false);
+    const isExpoGo = Constants.appOwnership === 'expo';
+    const didWarnExpoGoRef = useRef(false);
 
     useEffect(() => {
         let subscriber;
@@ -54,9 +57,18 @@ export const LocationProvider = ({ children }) => {
 
                 // Background updates are only for native (Android/iOS)
                 if (Platform.OS !== 'web') {
+                    if (Platform.OS === 'ios' && isExpoGo) {
+                        if (!didWarnExpoGoRef.current) {
+                            console.warn("[Location] iOS background updates require a dev build or production build. Skipping in Expo Go.");
+                            didWarnExpoGoRef.current = true;
+                        }
+                        return;
+                    }
+
                     const { status: bgStatus } = await Location.requestBackgroundPermissionsAsync();
                     if (bgStatus !== 'granted') {
                         console.warn("[Location] Background permission not granted. App will stop tracking when closed.");
+                        return;
                     }
 
                     await Location.startLocationUpdatesAsync(LOCATION_TASK_NAME, {
