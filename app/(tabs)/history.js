@@ -110,7 +110,7 @@ export default function HistoryScreen() {
     const fetchHistory = useCallback(async () => {
         try {
             setLoading(true);
-            const res = await api.get('/Profile/MechanicHistory/');
+            const res = await api.get('https://websocket.mechanicsetu.tech/api/Profile/MechanicHistory/');
             setHistoryData(res.data);
         } catch (error) {
             console.error("Failed to fetch history:", error);

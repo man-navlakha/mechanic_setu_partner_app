@@ -249,7 +249,7 @@ export default function Dashboard() {
 
     const fetchAds = async () => {
         try {
-            const res = await api.get('/core/map-ads/');
+            const res = await api.get('https://websocket.mechanicsetu.tech/api/core/map-ads/');
             if (Array.isArray(res.data)) {
                 setAdsData(res.data);
             }
@@ -269,7 +269,7 @@ export default function Dashboard() {
 
     const fetchJobHistory = async () => {
         try {
-            const res = await api.get('/Profile/MechanicHistory/');
+            const res = await api.get('https://websocket.mechanicsetu.tech/api/Profile/MechanicHistory/');
             const history = res.data.job_history || [];
             const totalEarned = history.reduce((sum, j) => sum + (parseFloat(j.price) || 0), 0);
             setEarnings({ total: totalEarned, count: history.length });

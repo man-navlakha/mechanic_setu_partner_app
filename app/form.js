@@ -9,7 +9,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../context/AuthContext';
 import api from '../utils/api';
 
-const NODE_API_BASE = 'https://mechanic-setu-int0.onrender.com/api';
+const NODE_API_BASE = 'https://api.mechanicsetu.tech/api';
 
 export default function MechanicForm() {
     const router = useRouter();

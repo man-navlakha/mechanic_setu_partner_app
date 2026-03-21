@@ -29,87 +29,75 @@ const JobCard = ({ job, onAccept, onReject, onCancel, isDark, t }) => {
 
     return (
         <View
-            className="bg-white dark:bg-slate-800 rounded-2xl mx-4 mb-3 overflow-hidden"
+            className="bg-white dark:bg-slate-800 rounded-3xl mx-4 mb-4 overflow-hidden border border-slate-200 dark:border-slate-700"
             style={{
                 shadowColor: '#000',
-                shadowOpacity: 0.1,
-                shadowRadius: 8,
-                shadowOffset: { width: 0, height: 2 },
-                elevation: 3,
+                shadowOpacity: 0.08,
+                shadowRadius: 10,
+                shadowOffset: { width: 0, height: 4 },
+                elevation: 4,
             }}
         >
             {/* Card Content */}
             <View className="p-5">
-                {/* Header Row: Vehicle Type & Status Badge */}
-                <View className="flex-row items-center justify-between mb-2">
+                {/* Header */}
+                <View className="flex-row items-start justify-between mb-3">
                     <View className="flex-row items-center">
                         {getVehicleIcon(job.vehical_type, isDark)}
                         <Text className="text-xs font-bold text-slate-500 dark:text-slate-400 ml-2 uppercase">
                             {job.vehical_type || t('jobPopup.vehicle')}
                         </Text>
                     </View>
-                    {/* Status Badge */}
-                    <View className={`px-2.5 py-1 rounded-full ${job.status === 'PENDING' ? 'bg-amber-100 dark:bg-amber-900/30' :
+                    <View className="flex-row items-center gap-2">
+                        <TouchableOpacity
+                            onPress={() => onCancel(job.id)}
+                            className="bg-red-100 dark:bg-red-900/20 p-2 rounded-full border border-red-200 dark:border-red-800"
+                            activeOpacity={0.7}
+                        >
+                            <X size={16} color={isDark ? "#f87171" : "#ef4444"} />
+                        </TouchableOpacity>
+
+                        <View className={`px-2.5 py-1 rounded-full ${job.status === 'PENDING' ? 'bg-amber-100 dark:bg-amber-900/30' :
                             job.status === 'ACCEPTED' ? 'bg-green-100 dark:bg-green-900/30' :
                                 'bg-slate-100 dark:bg-slate-700'
-                        }`}>
-                        <Text className={`text-[10px] font-bold uppercase ${job.status === 'PENDING' ? 'text-amber-700 dark:text-amber-400' :
+                            }`}>
+                            <Text className={`text-[10px] font-bold uppercase ${job.status === 'PENDING' ? 'text-amber-700 dark:text-amber-400' :
                                 job.status === 'ACCEPTED' ? 'text-green-700 dark:text-green-400' :
                                     'text-slate-500 dark:text-slate-400'
-                            }`}>
-                            {job.status}
-                        </Text>
+                                }`}>
+                                {job.status}
+                            </Text>
+                        </View>
                     </View>
                 </View>
 
-                {/* Problem Title and Job ID Badge */}
-                <View className="flex-row justify-between items-start mb-3">
-                    <Text className="text-xl font-black text-slate-900 dark:text-slate-100 flex-1 mr-3" numberOfLines={2}>
+                {/* Problem + Request Id */}
+                <View className="mb-4">
+                    <Text className="text-[11px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wide mb-1">
+                        New Service Request #{job.id}
+                    </Text>
+                    <Text className="text-2xl font-black text-slate-900 dark:text-slate-100" numberOfLines={2}>
                         {job.problem || t('jobPopup.unknownIssue')}
                     </Text>
-                    <View className="bg-blue-500 px-3 py-1.5 rounded-lg">
-                        <Text className="text-white font-bold text-sm">
-                            #{job.id}
-                        </Text>
-                    </View>
                 </View>
 
                 {/* Location */}
-                <View className="flex-row items-start mb-3">
-                    <MapPin size={16} color={isDark ? "#94a3b8" : "#64748b"} style={{ marginTop: 2 }} />
-                    <View className="flex-1 ml-2">
-                        <Text className="text-sm text-slate-700 dark:text-slate-300 font-medium" numberOfLines={2}>
-                            {job.location || t('jobPopup.locationShared')}
-                        </Text>
+                <View className="bg-slate-50 dark:bg-slate-700/40 rounded-2xl p-3.5 mb-3 border border-slate-200 dark:border-slate-700">
+                    <View className="flex-row items-start">
+                        <MapPin size={16} color={isDark ? "#94a3b8" : "#64748b"} style={{ marginTop: 2 }} />
+                        <View className="flex-1 ml-2">
+                            <Text className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase mb-1 tracking-wide">
+                                Pickup Location
+                            </Text>
+                            <Text className="text-sm text-slate-700 dark:text-slate-300 font-medium" numberOfLines={2}>
+                                {job.location || t('jobPopup.locationShared')}
+                            </Text>
+                        </View>
                     </View>
                 </View>
 
-                {/* Coordinates */}
-                {job.latitude && job.longitude && (
-                    <View className="bg-slate-50 dark:bg-slate-700/50 rounded-lg p-2.5 mb-3">
-                        <Text className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase mb-1">
-                            Coordinates
-                        </Text>
-                        <Text className="text-xs text-slate-600 dark:text-slate-300 font-mono">
-                            {job.latitude.toFixed(6)}, {job.longitude.toFixed(6)}
-                        </Text>
-                    </View>
-                )}
-
-                {/* Additional Details */}
-                {job.additional_details && job.additional_details.trim() !== '' && (
-                    <View className="bg-amber-50 dark:bg-amber-900/20 rounded-lg p-3 mb-3 border border-amber-200 dark:border-amber-800">
-                        <Text className="text-[10px] font-bold text-amber-600 dark:text-amber-400 uppercase mb-1">
-                            Additional Details
-                        </Text>
-                        <Text className="text-sm text-amber-800 dark:text-amber-200">
-                            {job.additional_details}
-                        </Text>
-                    </View>
-                )}
-
                 {/* Customer Info */}
-                <View className="flex-row items-center mb-4">
+                <View className="flex-row items-center mb-3 bg-slate-50 dark:bg-slate-700/40 rounded-2xl p-3.5 border border-slate-200 dark:border-slate-700">
                     <View className="w-12 h-12 rounded-full bg-pink-100 dark:bg-pink-900/30 items-center justify-center mr-3 overflow-hidden">
                         {job.user_profile_pic ? (
                             <Image
@@ -122,6 +110,9 @@ const JobCard = ({ job, onAccept, onReject, onCancel, isDark, t }) => {
                         )}
                     </View>
                     <View className="flex-1">
+                        <Text className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase mb-1 tracking-wide">
+                            Customer
+                        </Text>
                         <Text className="text-base text-slate-900 dark:text-slate-100 font-bold">
                             {job.first_name} {job.last_name}
                         </Text>
@@ -133,19 +124,35 @@ const JobCard = ({ job, onAccept, onReject, onCancel, isDark, t }) => {
                     </View>
                 </View>
 
+                {/* Coordinates */}
+                {job.latitude && job.longitude && (
+                    <View className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-2.5 mb-3 border border-blue-100 dark:border-blue-900/30">
+                        <Text className="text-[10px] font-bold text-blue-600 dark:text-blue-400 uppercase mb-1">
+                            Coordinates
+                        </Text>
+                        <Text className="text-xs text-blue-800 dark:text-blue-200 font-mono">
+                            {job.latitude.toFixed(6)}, {job.longitude.toFixed(6)}
+                        </Text>
+                    </View>
+                )}
+
+                {/* Additional Details */}
+                {job.additional_details && job.additional_details.trim() !== '' && (
+                    <View className="bg-amber-50 dark:bg-amber-900/20 rounded-xl p-3 mb-4 border border-amber-200 dark:border-amber-800">
+                        <Text className="text-[10px] font-bold text-amber-600 dark:text-amber-400 uppercase mb-1">
+                            Additional Details
+                        </Text>
+                        <Text className="text-sm text-amber-800 dark:text-amber-200">
+                            {job.additional_details}
+                        </Text>
+                    </View>
+                )}
+
                 {/* Action Buttons */}
                 <View className="flex-row gap-3">
                     <TouchableOpacity
-                        onPress={() => onCancel(job.id)}
-                        className="bg-red-100 dark:bg-red-900/20 p-3 rounded-xl items-center justify-center border border-red-200 dark:border-red-800"
-                        activeOpacity={0.7}
-                    >
-                        <X size={20} color={isDark ? "#f87171" : "#ef4444"} />
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
                         onPress={() => onReject(job.id)}
-                        className="bg-slate-200 dark:bg-slate-700 px-4 py-3 rounded-xl flex-1 items-center justify-center"
+                        className="bg-slate-100 dark:bg-slate-700 px-4 py-3 rounded-xl flex-1 items-center justify-center border border-slate-200 dark:border-slate-600"
                         activeOpacity={0.7}
                     >
                         <Text className="text-slate-700 dark:text-slate-300 font-bold text-sm">
@@ -156,7 +163,7 @@ const JobCard = ({ job, onAccept, onReject, onCancel, isDark, t }) => {
                     <TouchableOpacity
                         onPress={handleAccept}
                         disabled={accepting}
-                        className="bg-green-500 px-5 py-3 rounded-xl flex-[2] items-center justify-center"
+                        className="bg-green-500 px-5 py-3 rounded-xl flex-[1.6] items-center justify-center"
                         activeOpacity={0.8}
                         style={{
                             shadowColor: '#22c55e',
@@ -244,32 +251,28 @@ export default function PendingJobsScreen() {
 
             {/* Header */}
             <View
-                className="bg-white dark:bg-slate-800"
+                className="bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700"
                 style={{
                     paddingTop: insets.top + 12,
-                    paddingBottom: 12,
-                    shadowColor: '#000',
-                    shadowOpacity: 0.05,
-                    shadowRadius: 4,
-                    shadowOffset: { width: 0, height: 2 },
-                    elevation: 2,
+                    paddingBottom: 14,
                 }}
             >
                 <View className="mx-4 flex-row justify-between items-center">
-                    {/* Left: Title with Count Badge */}
-                    <View className="flex-row items-center">
-                        <Text className="text-xl font-black text-slate-900 dark:text-slate-100 mr-2">
-                            {pendingJobs.length} {pendingJobs.length === 1 ? 'Order' : 'Orders'}
+                    <View>
+                        <Text className="text-2xl font-black text-slate-900 dark:text-slate-100">
+                            Incoming Jobs
                         </Text>
-                        <View className="bg-blue-500 px-2.5 py-1 rounded-full">
-                            <Text className="text-white font-bold text-xs">
+                        <Text className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                            {pendingJobs.length} {pendingJobs.length === 1 ? 'request waiting' : 'requests waiting'}
+                        </Text>
+                    </View>
+
+                    <View className="flex-row items-center gap-2">
+                        <View className="bg-blue-500 px-3 py-1.5 rounded-full">
+                            <Text className="text-white font-extrabold text-xs">
                                 {pendingJobs.length}
                             </Text>
                         </View>
-                    </View>
-
-                    {/* Right: Controls */}
-                    <View className="flex-row items-center gap-2">
                         <TouchableOpacity
                             onPress={() => router.back()}
                             className="bg-slate-100 dark:bg-slate-700 p-2 rounded-full"
@@ -278,11 +281,6 @@ export default function PendingJobsScreen() {
                         </TouchableOpacity>
                     </View>
                 </View>
-
-                {/* Subtitle */}
-                <Text className="mx-4 mt-1 text-xs text-slate-500 dark:text-slate-400">
-                    {t('dashboard.reviewAndAccept') || 'Review and accept'}
-                </Text>
             </View>
 
             {/* Stop Ring Button (Floating) */}
@@ -313,7 +311,7 @@ export default function PendingJobsScreen() {
                         t={t}
                     />
                 )}
-                contentContainerStyle={{ paddingTop: 12, paddingBottom: 100 }}
+                contentContainerStyle={{ paddingTop: 14, paddingBottom: 100 }}
                 showsVerticalScrollIndicator={false}
             />
 

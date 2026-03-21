@@ -57,7 +57,7 @@ export default function ProfileScreen() {
             try {
                 const [profileRes, historyRes] = await Promise.all([
                     api.get('/Profile/MechanicProfile/'),
-                    api.get('/Profile/MechanicHistory/')
+                    api.get('https://websocket.mechanicsetu.tech/api/Profile/MechanicHistory/')
                 ]);
                 setProfileData(profileRes.data);
                 setHistoryData(historyRes.data);
@@ -117,7 +117,7 @@ export default function ProfileScreen() {
         };
 
         try {
-            const response = await api.post('/core/map-ads/', newAdData);
+            const response = await api.post('https://websocket.mechanicsetu.tech/api/core/map-ads/', newAdData);
             console.log("Ad Created Successfully:", response.data);
             Alert.alert("Success", "Ad Posted Successfully!");
         } catch (error) {

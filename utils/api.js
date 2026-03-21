@@ -3,9 +3,8 @@ import { router } from 'expo-router';
 import * as SecureStore from 'expo-secure-store';
 import safeStorage from './storage';
 
-const EXPO_API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL;
-const BASE_URL = (EXPO_API_BASE_URL || 'http://localhost:3000/api').replace(/\/$/, '');
-const NODE_API_HOST = 'mechanic-setu-int0.onrender.com';
+const BASE_URL = 'https://api.mechanicsetu.tech/api';
+const NODE_API_HOST = 'api.mechanicsetu.tech';
 const ACCESS_TOKEN_KEY = 'access';
 const REFRESH_TOKEN_KEY = 'refresh';
 
@@ -160,7 +159,7 @@ api.interceptors.response.use(
 
                 // Call refresh endpoint
                 const refreshResponse = await axios.post(
-                    `${BASE_URL}core/token/refresh/`,
+                    `${BASE_URL}/core/token/refresh/`,
                     {},
                     { headers, withCredentials: true }
                 );

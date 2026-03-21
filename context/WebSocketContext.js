@@ -17,7 +17,40 @@ try {
 }
 
 const WebSocketContext = createContext(null);
-const NODE_API_BASE = 'https://mechanic-setu-int0.onrender.com/api';
+const NODE_API_BASE = 'https://api.mechanicsetu.tech/api';
+const API_BASE = 'https://websocket.mechanicsetu.tech/api';
+
+const stringifyWsPayload = (payload) => {
+    if (typeof payload === 'string') return payload;
+    try {
+        return JSON.stringify(payload);
+    } catch {
+        return String(payload);
+    }
+};
+
+const parseWsPayload = (payload) => {
+    if (typeof payload !== 'string') return payload;
+    try {
+        return JSON.parse(payload);
+    } catch {
+        return null;
+    }
+};
+
+const logWsMessageDetailed = ({ direction, rawPayload, parsedPayload, extra = {} }) => {
+    const timestamp = new Date().toISOString();
+    const messageType = parsedPayload?.type || 'unknown';
+
+    console.log(`[WS][${timestamp}] ${direction} | type=${messageType}`);
+    if (Object.keys(extra).length > 0) {
+        console.log('[WS][DETAIL] META:', JSON.stringify(extra));
+    }
+    console.log('[WS][DETAIL] RAW:', rawPayload);
+    if (parsedPayload) {
+        console.log('[WS][DETAIL] PARSED:', JSON.stringify(parsedPayload, null, 2));
+    }
+};
 
 export const useWebSocket = () => {
     const ctx = useContext(WebSocketContext);
@@ -43,6 +76,29 @@ export const WebSocketProvider = ({ children }) => {
     const soundRef = useRef(null);
     const processedJobIds = useRef(new Set()); // Track accepted/pending IDs to avoid duplicate alerts
     const currentSoundId = useRef(0); // For handling async sound loading race conditions
+
+    const sendWsMessage = (payload, extra = {}) => {
+        const ws = socketRef.current;
+        if (!ws || ws.readyState !== WebSocket.OPEN) {
+            console.log('[WS] ⚠️ SEND_SKIPPED: socket not open', {
+                readyState: ws?.readyState,
+                ...extra,
+            });
+            return false;
+        }
+
+        const rawPayload = stringifyWsPayload(payload);
+        const parsedPayload = parseWsPayload(rawPayload);
+        logWsMessageDetailed({
+            direction: 'OUTGOING',
+            rawPayload,
+            parsedPayload,
+            extra,
+        });
+
+        ws.send(rawPayload);
+        return true;
+    };
 
     // --- 1. INITIALIZATION (Only when user is logged in) ---
     useEffect(() => {
@@ -116,11 +172,11 @@ export const WebSocketProvider = ({ children }) => {
                         console.log("[WS] 📤 SENDING LOCATION (Idle/Online)");
                     }
 
-                    socketRef.current.send(JSON.stringify(locationData));
+                    sendWsMessage(locationData, { reason: 'location_update_interval', jobId: jobId || null });
                 } else {
                     // Just send heartbeat if no location yet
                     const pingMessage = JSON.stringify({ type: 'user_heartbeat', timestamp: Date.now() });
-                    socketRef.current.send(pingMessage);
+                    sendWsMessage(pingMessage, { reason: 'heartbeat_no_location' });
                     console.log('[WS] 💓 Heartbeat sent (no location)');
                 }
             } else {
@@ -150,7 +206,7 @@ export const WebSocketProvider = ({ children }) => {
         if (coords && socketRef.current?.readyState === WebSocket.OPEN) {
             try {
                 const pingMessage = JSON.stringify({ type: 'user_heartbeat', timestamp: Date.now() });
-                socketRef.current.send(pingMessage);
+                sendWsMessage(pingMessage, { reason: 'location_triggered_heartbeat' });
                 console.log('%c[WS-PROVIDER] 🫀 Location-Triggered Heartbeat:', 'color: #10b981;', pingMessage);
             } catch (err) {
                 console.error('[WS-PROVIDER] Failed to send location-triggered ping:', err);
@@ -383,7 +439,7 @@ export const WebSocketProvider = ({ children }) => {
             console.log("[WS] Checking for Active/Pending Jobs...");
 
             // 1. Check for Active/Pending Jobs
-            const syncRes = await api.get(`${NODE_API_BASE}/jobs/SyncActiveJob/`);
+            const syncRes = await api.get(`${API_BASE}/jobs/SyncActiveJob/`);
 
             // Check if we actually have a valid job object
             if (syncRes.data && syncRes.data.id && syncRes.data.status) {
@@ -438,7 +494,7 @@ export const WebSocketProvider = ({ children }) => {
     };
     const updateStatus = async (status) => {
         try {
-            await api.put(`${NODE_API_BASE}/jobs/UpdateMechanicStatus/`, { status });
+            await api.put(`${API_BASE}/jobs/UpdateMechanicStatus/`, { status });
         } catch (error) {
             console.error("[STATUS] Update failed:", error);
         }
@@ -461,10 +517,13 @@ export const WebSocketProvider = ({ children }) => {
 
             const accessToken = await safeStorage.getItem('access');
             if (!accessToken) {
-                throw new Error("Access token missing. Please login again.");
+                console.warn("[WS] Access token missing. Skipping WebSocket connect.");
+                isConnectingRef.current = false;
+                setConnectionStatus('disconnected');
+                return;
             }
 
-            const HOST = 'mechanic-setu-int0.onrender.com';
+            const HOST = 'websocket.mechanicsetu.tech';
             const wsUrl = `wss://${HOST}/ws/job_notifications/?token=${encodeURIComponent(accessToken)}`;
 
             console.log("[WS] Connecting:", wsUrl);
@@ -472,7 +531,11 @@ export const WebSocketProvider = ({ children }) => {
             socketRef.current = ws;
 
             ws.onopen = () => {
-                console.log("[WS] Connected");
+                console.log("[WS] Connected", {
+                    readyState: ws.readyState,
+                    url: wsUrl,
+                    appState: appState.current,
+                });
                 isConnectingRef.current = false; // Reset flag on success
                 setSocket(ws);
                 setConnectionStatus('connected');
@@ -482,10 +545,23 @@ export const WebSocketProvider = ({ children }) => {
 
             ws.onmessage = (event) => {
                 try {
-                    console.log("[WS] 📥 RAW MESSAGE RECEIVED:", event.data);
-                    const data = JSON.parse(event.data);
-                    console.log("[WS] 📦 PARSED MESSAGE:", JSON.stringify(data, null, 2));
-                    console.log("[WS] 🔖 MESSAGE TYPE:", data.type);
+                    const rawPayload = stringifyWsPayload(event.data);
+                    const data = parseWsPayload(rawPayload);
+
+                    logWsMessageDetailed({
+                        direction: 'INCOMING',
+                        rawPayload,
+                        parsedPayload: data,
+                        extra: {
+                            readyState: ws.readyState,
+                        },
+                    });
+
+                    if (!data || typeof data !== 'object') {
+                        console.log('[WS] ⚠️ INCOMING_MESSAGE_IGNORED: non-JSON payload');
+                        return;
+                    }
+
                     handleMessage(data);
                 } catch (e) {
                     console.error("[WS] ❌ MESSAGE PARSE ERROR:", e);
@@ -493,8 +569,13 @@ export const WebSocketProvider = ({ children }) => {
                 }
             };
 
-            ws.onclose = () => {
-                console.log("[WS] Disconnected");
+            ws.onclose = (event) => {
+                console.log("[WS] Disconnected", {
+                    code: event?.code,
+                    reason: event?.reason,
+                    wasClean: event?.wasClean,
+                    readyState: ws.readyState,
+                });
                 isConnectingRef.current = false; // Reset flag on close
                 setSocket(null);
                 setConnectionStatus('disconnected');
@@ -507,7 +588,11 @@ export const WebSocketProvider = ({ children }) => {
             };
 
             ws.onerror = (e) => {
-                console.log("[WS] Error", e.message);
+                console.log("[WS] Error", {
+                    message: e?.message,
+                    type: e?.type,
+                    readyState: ws.readyState,
+                });
                 isConnectingRef.current = false; // Reset flag on error
                 setConnectionStatus('disconnected');
             };
@@ -638,7 +723,7 @@ export const WebSocketProvider = ({ children }) => {
 
         try {
             console.log(`[JOB] Accepting Job ID: ${jobId}`);
-            const res = await api.post(`${NODE_API_BASE}/jobs/AcceptServiceRequest/${jobId}/`);
+            const res = await api.post(`${API_BASE}/jobs/AcceptServiceRequest/${jobId}/`);
 
             let acceptedJob = res.data.job;
             // Fallback if backend doesn't return full job
@@ -708,7 +793,7 @@ export const WebSocketProvider = ({ children }) => {
 
     const completeJob = async (jobId, price) => {
         try {
-            await api.post(`${NODE_API_BASE}/jobs/CompleteServiceRequest/${jobId}/`, { price });
+            await api.post(`${API_BASE}/jobs/CompleteServiceRequest/${jobId}/`, { price });
             Alert.alert("Success", "Job Completed!");
             setJob(null);
             updateStatus("ONLINE");
@@ -720,7 +805,7 @@ export const WebSocketProvider = ({ children }) => {
 
     const cancelJob = async (jobId, reason) => {
         try {
-            await api.post(`${NODE_API_BASE}/jobs/CancelServiceRequest/${jobId}/`, { cancellation_reason: reason });
+            await api.post(`${API_BASE}/jobs/CancelServiceRequest/${jobId}/`, { cancellation_reason: reason });
             Alert.alert("Cancelled", "Job has been cancelled.");
             setJob(null);
             updateStatus("ONLINE");

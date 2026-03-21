@@ -14,6 +14,39 @@ export function AuthProvider({ children }) {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
+    const saveAuthTokens = async (tokenPayload = {}) => {
+        const accessToken = tokenPayload?.access || tokenPayload?.access_token || tokenPayload?.tokens?.access;
+        const refreshToken = tokenPayload?.refresh || tokenPayload?.refresh_token || tokenPayload?.tokens?.refresh;
+
+        if (accessToken) {
+            await safeStorage.setItem('access', accessToken);
+            await safeStorage.setItem('access_token', accessToken);
+        }
+
+        if (refreshToken) {
+            await safeStorage.setItem('refresh', refreshToken);
+            await safeStorage.setItem('refresh_token', refreshToken);
+        }
+
+        return { accessToken, refreshToken };
+    };
+
+    const refreshSessionTokens = async () => {
+        try {
+            const refreshRes = await api.post('core/token/refresh/', {});
+            const { accessToken } = await saveAuthTokens(refreshRes?.data || {});
+            if (accessToken) {
+                console.log('[Auth] Session tokens refreshed and saved.');
+            } else {
+                console.log('[Auth] Refresh API responded without access token.');
+            }
+            return accessToken;
+        } catch (tokenError) {
+            console.warn('[Auth] Token refresh failed:', tokenError?.response?.status || tokenError?.message);
+            return null;
+        }
+    };
+
     useEffect(() => {
         checkLoginStatus();
         // Fallback: If 3 seconds pass and we are still loading, force stop loading.
@@ -42,6 +75,8 @@ export function AuthProvider({ children }) {
                 // Parse saved user data
                 const parsedUser = JSON.parse(savedUserData);
                 console.log("[Auth] Restored user from storage:", parsedUser.id);
+
+                await refreshSessionTokens();
 
                 // Validate with backend - try to fetch current user info
                 console.log("[Auth] Validating session with backend...");
@@ -87,7 +122,7 @@ export function AuthProvider({ children }) {
     const fetchProfile = async () => {
         try {
             console.log("[Auth] Fetching MechanicProfile...");
-            const res = await api.get('https://mechanic-setu-int0.onrender.com/api/Profile/MechanicProfile/');
+            const res = await api.get('https://api.mechanicsetu.tech/api/Profile/MechanicProfile/');
             console.log("[Auth] Profile res:", res.status);
 
             if (res.data && res.data.mobile_number) {
@@ -134,7 +169,9 @@ export function AuthProvider({ children }) {
         await safeStorage.deleteItem('session_cookie');
         await safeStorage.deleteItem('user_data');
         await safeStorage.deleteItem('access');
+        await safeStorage.deleteItem('access_token');
         await safeStorage.deleteItem('refresh');
+        await safeStorage.deleteItem('refresh_token');
     };
 
     const value = React.useMemo(() => ({

@@ -3,10 +3,11 @@
   "main": "index.js",
   "version": "1.0.0",
   "scripts": {
-    "start": "react-native start",
+    "start": "expo start",
+    "start:dev-client": "expo start --dev-client",
     "reset-project": "node ./scripts/reset-project.js",
-    "android": "npx react-native run-android",
-    "ios": "npx react-native run-ios",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
     "web": "expo start --web",
     "web:build": "expo export -p web",
     "lint": "eslint ."
@@ -70,7 +71,6 @@
   },
   "devDependencies": {
     "@types/react": "~19.1.0",
-    "@react-native/metro-config": "^0.81.0",
     "eslint": "^9.25.0",
     "eslint-config-expo": "~10.0.0",
     "typescript": "~5.9.2"
